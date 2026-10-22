@@ -1,0 +1,12 @@
+# Vercel publica solo los archivos del sitio (index.html, sw.js, manifest.webmanifest,
+# apple-touch-icon.png y version.json). Fuentes, migraciones, herramientas y la
+# versión anterior (legacy/) quedan fuera.
+public/
+supabase/
+tests/
+tools/
+fuentes/
+legacy/
+.claude/
+README.md
+CLAUDE.md

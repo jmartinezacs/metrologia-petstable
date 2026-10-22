@@ -1,0 +1,18 @@
+{
+  "id": "/",
+  "name": "Metrología · Pet's Table",
+  "short_name": "Metrología",
+  "description": "Verificaciones y calibraciones de básculas, termómetros, potenciómetros, micropipetas y otros equipos de medición de Pet's Table S.A. de C.V.",
+  "lang": "es-MX",
+  "dir": "ltr",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#090D12",
+  "theme_color": "#F58020",
+  "categories": ["business", "productivity", "utilities"],
+  "icons": [
+    { "src": "/apple-touch-icon.png?v=7", "sizes": "180x180", "type": "image/png", "purpose": "any" }
+  ]
+}
