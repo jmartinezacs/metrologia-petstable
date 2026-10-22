@@ -82,6 +82,9 @@ $html = "<!-- Metrología · Pet's Table — archivo generado por tools/build-si
 Copy-Item (Join-Path $Src 'apple-touch-icon.png') (Join-Path $Out 'apple-touch-icon.png') -Force
 Copy-Item (Join-Path $Src 'sw.js') (Join-Path $Out 'sw.js') -Force
 Copy-Item (Join-Path $Src 'manifest.webmanifest') (Join-Path $Out 'manifest.webmanifest') -Force
+# Íconos HD del manifiesto (pantalla de inicio y de carga en Android)
+New-Item -ItemType Directory -Force (Join-Path $Out 'icons') | Out-Null
+Copy-Item (Join-Path $Src 'icons\*.png') (Join-Path $Out 'icons') -Force
 if ($configJs -notmatch 'APP_VERSION:\s*["'']([^"'']+)["'']') { throw 'No se encontró APP_VERSION en config.js' }
 [IO.File]::WriteAllText((Join-Path $Out 'version.json'), "{`"version`":`"$($Matches[1])`"}`n", $utf8)
 Get-Item (@('index.html', 'apple-touch-icon.png', 'sw.js', 'manifest.webmanifest', 'version.json') | ForEach-Object { Join-Path $Out $_ }) | ForEach-Object { '{0,-24} {1,10:N0} bytes' -f $_.Name, $_.Length }

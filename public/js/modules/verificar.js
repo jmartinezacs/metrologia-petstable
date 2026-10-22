@@ -7,7 +7,7 @@
 // =====================================================================
 import {
   sb, esc, icon, refreshIcons, toast, errMsg, must, checkForm, pill, fmtDate, fmtVal, fmtSigned, todayISO,
-  aGramos, factorEMT, estadistica, CLASES, CRITERIOS, tipoIcono, navigate, dictamenPill, emptyState,
+  aGramos, factorEMT, estadistica, U, convertirMasa, CLASES, CRITERIOS, tipoIcono, navigate, dictamenPill, emptyState,
 } from '../core.js';
 import { cargarEquipos } from './equipos.js';
 
@@ -66,8 +66,13 @@ async function elegir(id) {
       ctx = { b: b.data, ver: ver.data, cal: cal.data, pesas: pesas.data.filter((p) => !p.fecha_vencimiento_calbas || p.fecha_vencimiento_calbas >= hoy) };
       campos.innerHTML = `
         <div class="field"><label for="v-pat">Pesa patrón <span class="req">*</span></label><select id="v-pat" name="patron" required>
-          <option value="">${ctx.pesas.length ? 'Selecciona…' : 'No hay pesas patrón vigentes'}</option>${ctx.pesas.map((p) => `<option value="${p.id_calbas}">${esc(p.codigo_calbas)} · ${fmtVal(p.valor_nominal_calbas)} ${esc(p.unidad_calbas)}</option>`).join('')}</select></div>
+          <option value="">${ctx.pesas.length ? 'Selecciona…' : 'No hay pesas patrón vigentes'}</option>${ctx.pesas.map((p) => `<option value="${p.id_calbas}">${esc(p.codigo_calbas)} · ${fmtVal(p.valor_nominal_calbas)} ${esc(U(p.unidad_calbas))}</option>`).join('')}</select></div>
+        <p class="hint">Las lecturas se capturan en la unidad de la pesa patrón seleccionada; al guardar se convierten a la unidad de la báscula (${esc(U(ctx.b.unidad_calbas))}).</p>
         ${lecturasHTML(ctx.b.unidad_calbas, false)}`;
+      campos.querySelector('#v-pat').addEventListener('change', (ev) => {
+        const p = ctx.pesas.find((x) => x.id_calbas === ev.target.value);
+        campos.querySelector('#v-ulect').textContent = U(p ? p.unidad_calbas : ctx.b.unidad_calbas);
+      });
     } else {
       const [e, pats, tipo] = await Promise.all([
         sb.from('equipos_calbas').select('*').eq('id_calbas', id).single().then(must),
@@ -80,7 +85,7 @@ async function elegir(id) {
         <div class="form-grid">
           <div class="field"><label for="v-pat">Patrón de referencia <span class="req">*</span></label><select id="v-pat" name="patron" required>
             <option value="">${ctx.pats.length ? 'Selecciona…' : 'No hay patrones vigentes para este tipo'}</option>${ctx.pats.map((p) => `<option value="${p.id_calbas}">${esc(p.codigo_calbas)} · ${esc(p.descripcion_calbas)}</option>`).join('')}</select></div>
-          <div class="field"><label for="v-ref">Valor de referencia (${esc(ctx.e.unidad_calbas)}) <span class="req">*</span></label>
+          <div class="field"><label for="v-ref">Valor de referencia (${esc(U(ctx.e.unidad_calbas))}) <span class="req">*</span></label>
             <input id="v-ref" name="ref" type="number" step="any" inputmode="decimal" required ${ctx.tipo.permite_negativos_calbas ? '' : 'min="0"'}></div>
         </div>
         ${lecturasHTML(ctx.e.unidad_calbas, ctx.tipo.permite_negativos_calbas)}`;
@@ -104,7 +109,7 @@ function fichaCorta(e) {
 function lecturasHTML(unidad, negativos) {
   const hoy = todayISO();
   const at = `type="number" step="any" inputmode="decimal" required ${negativos ? '' : 'min="0"'}`;
-  return `<h4 class="section-label mt">Lecturas del equipo (${esc(unidad)})</h4>
+  return `<h4 class="section-label mt">Lecturas del equipo <span class="u">(<span id="v-ulect">${esc(U(unidad))}</span>)</span></h4>
     <div class="lect-grid">
       ${[1, 2, 3].map((i) => `<div class="field"><label for="v-l${i}">Lectura ${i} <span class="req">*</span></label><input id="v-l${i}" name="l${i}" ${at}></div>`).join('')}
       <div class="field avg"><label for="v-avg">Promedio</label><output id="v-avg" class="mono">—</output></div>
@@ -155,29 +160,32 @@ function preview() {
       const { b } = ctx;
       const crit = criterioBascula(f.fecha.value || todayISO());
       const p = ctx.pesas.find((x) => x.id_calbas === f.patron.value);
-      if (avg) avg.textContent = est ? `${fmtVal(est.prom)} ${b.unidad_calbas}` : '—';
-      const base = [['Clase / criterio', CLASES[b.clase_exactitud_calbas], CRITERIOS[crit]], ['Promedio', est ? `${fmtVal(est.prom)} ${b.unidad_calbas}` : '—', 'Unidad de la báscula']];
+      const uL = p ? p.unidad_calbas : b.unidad_calbas;
+      if (avg) avg.textContent = est ? `${fmtVal(est.prom)} ${U(uL)}` : '—';
+      const base = [['Clase / criterio', CLASES[b.clase_exactitud_calbas], CRITERIOS[crit]], ['Promedio', est ? `${fmtVal(est.prom)} ${U(uL)}` : '—', 'En la unidad de la pesa patrón']];
       if (!p) return card(pend, base, 'Selecciona una pesa patrón para calcular el EMT.');
       const patG = aGramos(p.valor_nominal_calbas, p.unidad_calbas), eG = aGramos(b.division_verificacion_e_calbas, b.unidad_calbas);
       const div = patG / eG, fac = factorEMT(b.clase_exactitud_calbas, crit, div), emt = eG * fac;
       base.push(['Divisiones de carga (m/e)', fmtVal(div, 2), `Factor ${fmtVal(fac)}`], ['EMT permitido', `± ${fmtVal(emt, 4)} g`]);
       if (!est) return card(pend, base, 'Captura las tres lecturas para determinar el error y el dictamen.');
-      const err = aGramos(est.prom, b.unidad_calbas) - patG, ok = Math.abs(err) <= emt;
+      const err = aGramos(est.prom, uL) - patG, ok = Math.abs(err) <= emt;
       base.push(['Error de indicación', `${fmtSigned(err)} g`, `${fmtVal(Math.abs(err) / emt * 100, 1)} % del EMT`]);
-      return card(dictamenPill(ok ? 'CUMPLE' : 'NO_CUMPLE'), base, 'Dictamen orientativo. La base de datos lo recalcula al guardar.');
+      const bajoMin = b.capacidad_minima_calbas && patG < aGramos(b.capacidad_minima_calbas, b.unidad_calbas);
+      return card(dictamenPill(ok ? 'CUMPLE' : 'NO_CUMPLE'), base, `${bajoMin ? `⚠ La pesa patrón está por debajo de la capacidad mínima de la báscula (${fmtVal(b.capacidad_minima_calbas)} ${U(b.unidad_calbas)}); usa una pesa mayor para una verificación representativa. ` : ''}Dictamen orientativo. La base de datos lo recalcula al guardar.`);
     }
     const { e } = ctx;
     const ref = f.ref.value === '' ? null : Number(f.ref.value);
-    if (avg) avg.textContent = est ? `${fmtVal(est.prom)} ${e.unidad_calbas}` : '—';
+    const ue = U(e.unidad_calbas);
+    if (avg) avg.textContent = est ? `${fmtVal(est.prom)} ${ue}` : '—';
     const tol = ref == null ? null : (e.tolerancia_tipo_calbas === 'PORCENTAJE' ? Math.abs(ref) * e.tolerancia_calbas / 100 : Number(e.tolerancia_calbas));
-    const base = [['Valor de referencia', ref == null ? '—' : `${fmtVal(ref)} ${e.unidad_calbas}`],
-      ['Tolerancia', tol == null ? '—' : `± ${fmtVal(tol, 4)} ${e.unidad_calbas}`, e.tolerancia_tipo_calbas === 'PORCENTAJE' ? `${fmtVal(e.tolerancia_calbas)} % de la referencia` : 'Absoluta'],
-      ['Promedio', est ? `${fmtVal(est.prom)} ${e.unidad_calbas}` : '—']];
+    const base = [['Valor de referencia', ref == null ? '—' : `${fmtVal(ref)} ${ue}`],
+      ['Tolerancia', tol == null ? '—' : `± ${fmtVal(tol, 4)} ${ue}`, e.tolerancia_tipo_calbas === 'PORCENTAJE' ? `${fmtVal(e.tolerancia_calbas)} % de la referencia` : 'Absoluta'],
+      ['Promedio', est ? `${fmtVal(est.prom)} ${ue}` : '—']];
     if (ref == null || !est) return card(pend, base, 'Captura el valor de referencia y las tres lecturas.');
     const err = est.prom - ref;
     const okErr = Math.abs(err) <= tol + 1e-12;
     const okCv = !e.cv_max_pct_calbas || (est.cv ?? 0) <= e.cv_max_pct_calbas;
-    base.push(['Error', `${fmtSigned(err)} ${e.unidad_calbas}`, okErr ? 'Dentro de tolerancia' : 'Fuera de tolerancia']);
+    base.push(['Error', `${fmtSigned(err)} ${ue}`, okErr ? 'Dentro de tolerancia' : 'Fuera de tolerancia']);
     if (e.cv_max_pct_calbas) base.push(['CV (repetibilidad)', `${fmtVal(est.cv, 3)} %`, `Máximo ${fmtVal(e.cv_max_pct_calbas)} %`]);
     return card(dictamenPill(okErr && okCv ? 'CUMPLE' : 'NO_CUMPLE'), base, 'Dictamen orientativo. La base de datos lo recalcula al guardar.');
   } catch (err) { return card(pend, [['Equipo', eq.codigo_calbas]], err.message); }
@@ -195,10 +203,14 @@ async function guardar(ev) {
   try {
     let r;
     if (eq.origen_calbas === 'bascula') {
+      // Las lecturas se capturan en la unidad de la pesa y se guardan en la de la báscula
+      const pesa = ctx.pesas.find((p) => p.id_calbas === f.patron.value);
+      const aBas = (x) => Math.round(convertirMasa(x, pesa.unidad_calbas, ctx.b.unidad_calbas) * 1e6) / 1e6;
+      const l = lecturas.map(aBas), prom = Math.round(((l[0] + l[1] + l[2]) / 3) * 1e6) / 1e6;
       r = must(await sb.from('verificaciones_calbas').insert({
         bascula_id_calbas: eq.id_calbas, departamento_id_calbas: eq.departamento_id_calbas, pesa_patron_id_calbas: f.patron.value,
-        pesa_patron_valor_calbas: ctx.pesas.find((p) => p.id_calbas === f.patron.value)?.valor_nominal_calbas,
-        lectura_1_calbas: lecturas[0], lectura_2_calbas: lecturas[1], lectura_3_calbas: lecturas[2], promedio_lecturas_calbas: est.prom, peso_real_calbas: est.prom,
+        pesa_patron_valor_calbas: pesa.valor_nominal_calbas,
+        lectura_1_calbas: l[0], lectura_2_calbas: l[1], lectura_3_calbas: l[2], promedio_lecturas_calbas: prom, peso_real_calbas: prom,
         unidad_calbas: ctx.b.unidad_calbas, fecha_calbas: f.fecha.value, observaciones_calbas: f.obs.value.trim() || null,
       }).select('id_calbas, dictamen_calbas, error_indicacion_calbas, emt_permitido_calbas').single()).data;
       if (r.dictamen_calbas === 'NO_CUMPLE') sb.functions.invoke('alerta_inmediata_calbas', { body: { verification_id_calbas: r.id_calbas } }).catch(() => {});
@@ -224,6 +236,7 @@ function resultado(ok) {
     <h2>${ok ? 'El equipo cumple' : 'El equipo no cumple'}</h2>
     <p>${esc(eq.codigo_calbas)} · ${esc(eq.tipo_nombre_calbas)} — ${ok ? 'puede seguir en uso hasta su próxima verificación.' : 'identifícalo como “fuera de uso” y solicita ajuste o calibración.'}</p>
     <div class="page-actions center">
+      ${ok ? '' : `<button class="btn red" data-go="#/historial?seguimiento=pendiente">${icon('wrench')} Registrar acción correctiva</button>`}
       <button class="btn primary" data-go="#/verificar">${icon('clipboard-plus')} Registrar otra</button>
       <button class="btn secondary" data-go="#/historial">${icon('history')} Ver historial</button>
     </div></div>`;

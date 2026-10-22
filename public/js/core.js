@@ -768,6 +768,22 @@ export function dictamenPill(d, estado) {
 export const CLASES = { CLASE_I: 'Clase I', CLASE_II: 'Clase II', CLASE_III: 'Clase III', CLASE_IIII: 'Clase IIII' };
 export const CRITERIOS = { VERIFICACION_INICIAL: 'Verificación inicial', EN_SERVICIO: 'En servicio' };
 export const tipoIcono = (clave, ic) => (clave === 'BASCULA' ? 'scale' : ic || 'gauge');
+// Unidad tal como se muestra en pantalla (en la base se guarda "kg")
+export const U = (u) => (String(u ?? '').toLowerCase() === 'kg' ? 'Kg' : String(u ?? ''));
+// Convierte un valor de masa entre g y kg (otras unidades se devuelven igual)
+export function convertirMasa(v, de, a) {
+  if (v === null || v === undefined || v === '') return v;
+  const d = String(de).toLowerCase(), h = String(a).toLowerCase();
+  if (d === h || !['g', 'kg'].includes(d) || !['g', 'kg'].includes(h)) return Number(v);
+  return d === 'kg' ? Number(v) * 1000 : Number(v) / 1000;
+}
+// Seguimiento de verificaciones «no cumple»
+export const ACCIONES = {
+  AJUSTE: 'Ajuste', REPARACION: 'Reparación', CALIBRACION: 'Calibración externa', FUERA_DE_USO: 'Retiro / fuera de uso',
+  REVERIFICACION: 'Re-verificación', BAJA: 'Baja definitiva', OTRO: 'Otra acción',
+};
+export const SEGUIMIENTO = { sin_seguimiento: ['Sin seguimiento', 'bad'], abierto: ['En seguimiento', 'warn'], cerrado: ['Cerrado', 'ok'] };
+export const segPill = (e) => pill(...(SEGUIMIENTO[e] || [e || '—', 'gray']));
 
 // Vista previa del cálculo de básculas. La base de datos recalcula el dictamen
 // definitivo (validar_verificacion_calbas); estas reglas reflejan esa función.

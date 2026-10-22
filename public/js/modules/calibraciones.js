@@ -20,7 +20,7 @@ export default {
         <div><span class="eyebrow">Aseguramiento metrológico</span><h1>Calibraciones</h1>
           <p>Vigencia de la calibración externa de cada equipo y sus certificados.</p></div>
         <div class="page-actions">
-          <button class="btn secondary" data-c="csv">${icon('file-spreadsheet')} Exportar</button>
+          <button class="btn green" data-c="csv">${icon('file-spreadsheet')} Exportar a Excel (CSV)</button>
           ${state.isAdmin ? `<button class="btn primary" data-c="nueva">${icon('plus')} Registrar calibración</button>` : ''}
         </div>
       </section>
@@ -59,10 +59,10 @@ async function load(filtroEstado = '') {
     equipos = (await cargarEquipos()).filter((e) => e.activo_calbas);
     const cuenta = (s) => equipos.filter((e) => e.estado_calibracion_calbas === s).length;
     const kpi = (cls, ico, label, n, desc, filtro) => `<button class="kpi ${cls} clickable" data-kpi="${filtro}"><div class="kpi-head"><span class="kpi-ico">${icon(ico)}</span><small>${esc(label)}</small></div><strong>${n}</strong><span class="desc">${esc(desc)}</span></button>`;
-    root.querySelector('#c-kpis').innerHTML = kpi('i-blue', 'badge-check', 'Vigentes', cuenta('vigente'), 'Más de 30 días de vigencia', 'vigente')
+    root.querySelector('#c-kpis').innerHTML = kpi('c3 i-green', 'badge-check', 'Vigentes', cuenta('vigente'), 'Más de 30 días de vigencia', 'vigente')
       + kpi('c2 i-amber', 'calendar-clock', 'Por vencer', cuenta('por_vencer'), 'En los próximos 30 días', 'por_vencer')
-      + kpi(`${cuenta('vencida') ? 'danger' : 'c4'} i-pink`, 'calendar-x', 'Vencidas', cuenta('vencida'), 'Requieren calibración', 'vencida')
-      + kpi('c3 i-violet', 'file-question', 'Sin registro', cuenta('sin_registro'), 'Sin certificado capturado', 'sin_registro');
+      + kpi(`${cuenta('vencida') ? 'danger' : 'c4'} i-red`, 'calendar-x', 'Vencidas', cuenta('vencida'), 'Requieren calibración', 'vencida')
+      + kpi('c4 i-violet', 'file-question', 'Sin registro', cuenta('sin_registro'), 'Sin certificado capturado', 'sin_registro');
     if (tab === 'vigencia') {
       const orden = { vencida: 0, por_vencer: 1, sin_registro: 2, vigente: 3 };
       let rows = [...equipos].sort((a, b) => orden[a.estado_calibracion_calbas] - orden[b.estado_calibracion_calbas] || (a.dias_calibracion_calbas ?? 99999) - (b.dias_calibracion_calbas ?? 99999));
@@ -75,7 +75,7 @@ async function load(filtroEstado = '') {
           <td data-label="Vencimiento">${fmtDate(e.vencimiento_calibracion_calbas)}${e.dias_calibracion_calbas != null ? `<span class="cell-sub">${e.dias_calibracion_calbas < 0 ? `Hace ${-e.dias_calibracion_calbas} días` : `En ${e.dias_calibracion_calbas} días`}</span>` : ''}</td>
           <td data-label="Certificado">${esc(e.numero_certificado_calbas || '—')}<span class="cell-sub">${esc(e.proveedor_laboratorio_calbas || '')}</span></td>
           <td data-label="Estado">${calPill(e.estado_calibracion_calbas)}</td>
-          ${state.isAdmin ? `<td class="actions"><button class="btn ghost sm" data-c="nueva" data-id="${e.id_calbas}">${icon('plus')} Calibración</button></td>` : ''}</tr>`).join('')}
+          ${state.isAdmin ? `<td class="actions"><button class="btn orange sm" data-c="nueva" data-id="${e.id_calbas}">${icon('plus')} Calibración</button></td>` : ''}</tr>`).join('')}
         </tbody></table></div>` : emptyState({ ico: 'badge-check', title: 'Sin equipos en este estado' });
     } else {
       const { data } = must(await sb.from('vw_calibraciones_todas_calbas').select('*').order('fecha_calibracion_calbas', { ascending: false }).limit(500));

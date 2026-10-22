@@ -53,8 +53,8 @@ function pintar() {
         ${dato('clock', 'Último acceso', fmtDateTime(u?.last_sign_in_at))}
       </div>
       <div class="page-actions mt">
-        <label for="pf-foto" class="btn secondary">${icon('camera')} Cambiar fotografía</label><input id="pf-foto" type="file" accept="image/jpeg,image/png,image/webp" class="sr-only">
-        <button class="btn secondary" data-p="pw">${icon('key-round')} Cambiar contraseña</button>
+        <label for="pf-foto" class="btn teal">${icon('camera')} Cambiar fotografía</label><input id="pf-foto" type="file" accept="image/jpeg,image/png,image/webp" class="sr-only">
+        <button class="btn violet" data-p="pw">${icon('key-round')} Cambiar contraseña</button>
       </div>
       <p class="hint mt">Tu contraseña es la misma de tu cuenta Pet's Table en las demás aplicaciones. Para cambiar tu puesto, rol o departamento, solicítalo a un administrador.</p>
     </div>`;

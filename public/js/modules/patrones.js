@@ -5,7 +5,7 @@
 // =====================================================================
 import {
   sb, state, esc, icon, toast, openModal, checkForm, formValues, nullIfEmpty, must, pill, fmtDate, fmtVal,
-  todayISO, diffDays, emptyState, errorState, refreshIcons, getTipos,
+  todayISO, diffDays, emptyState, errorState, refreshIcons, getTipos, U,
 } from '../core.js';
 
 let root, tab = 'pesas';
@@ -58,7 +58,7 @@ async function load() {
       body.innerHTML = data.length ? `<div class="table-wrap responsive"><table class="table"><thead><tr><th>Código</th><th>Descripción</th><th>Valor nominal</th><th>Calibración</th><th>Vencimiento</th><th>Estado</th>${state.isAdmin ? '<th></th>' : ''}</tr></thead><tbody>
         ${data.map((p) => { const v = vigenciaPatron({ ...p, activo_calbas: p.activa_calbas }); return `<tr>
           <td data-label="Código"><b>${esc(p.codigo_calbas)}</b></td><td data-label="Descripción">${esc(p.descripcion_calbas)}</td>
-          <td data-label="Valor" class="mono">${fmtVal(p.valor_nominal_calbas)} ${esc(p.unidad_calbas)}</td>
+          <td data-label="Valor" class="mono">${fmtVal(p.valor_nominal_calbas)} ${esc(U(p.unidad_calbas))}</td>
           <td data-label="Calibración">${fmtDate(p.fecha_calibracion_calbas)}</td><td data-label="Vencimiento">${fmtDate(p.fecha_vencimiento_calbas)}</td>
           <td data-label="Estado">${pill(...v)}</td>
           ${state.isAdmin ? `<td class="actions"><button class="icon-btn" data-pt="editar" data-id="${p.id_calbas}" aria-label="Editar">${icon('pencil')}</button></td>` : ''}</tr>`; }).join('')}
@@ -73,8 +73,8 @@ async function load() {
         ${data.map((p) => `<tr>
           <td data-label="Código"><b>${esc(p.codigo_calbas)}</b></td><td data-label="Patrón">${esc(p.descripcion_calbas)}${p.lote_calbas ? `<span class="cell-sub">Lote ${esc(p.lote_calbas)}</span>` : ''}</td>
           <td data-label="Para">${esc(tipoDe[p.tipo_id_calbas]?.nombre_calbas || '—')}</td>
-          <td data-label="Valor" class="mono">${p.valor_nominal_calbas != null ? `${fmtVal(p.valor_nominal_calbas)} ${esc(p.unidad_calbas)}` : '<span class="cell-sub">Variable</span>'}</td>
-          <td data-label="Incertidumbre" class="mono">${p.incertidumbre_calbas != null ? `± ${fmtVal(p.incertidumbre_calbas)} ${esc(p.unidad_calbas)}` : '—'}</td>
+          <td data-label="Valor" class="mono">${p.valor_nominal_calbas != null ? `${fmtVal(p.valor_nominal_calbas)} ${esc(U(p.unidad_calbas))}` : '<span class="cell-sub">Variable</span>'}</td>
+          <td data-label="Incertidumbre" class="mono">${p.incertidumbre_calbas != null ? `± ${fmtVal(p.incertidumbre_calbas)} ${esc(U(p.unidad_calbas))}` : '—'}</td>
           <td data-label="Certificado">${esc(p.numero_certificado_calbas || '—')}${p.proveedor_calbas ? `<span class="cell-sub">${esc(p.proveedor_calbas)}</span>` : ''}</td>
           <td data-label="Vencimiento">${fmtDate(p.fecha_vencimiento_calbas)}</td><td data-label="Estado">${pill(...vigenciaPatron(p))}</td>
           ${state.isAdmin ? `<td class="actions"><button class="icon-btn" data-pt="editar" data-id="${p.id_calbas}" aria-label="Editar">${icon('pencil')}</button></td>` : ''}</tr>`).join('')}
@@ -94,7 +94,7 @@ async function formPesa(id) {
     title: id ? `Editar ${p.codigo_calbas}` : 'Nueva pesa patrón', subtitle: 'El código (PP-###) y la descripción se generan automáticamente.', size: 'md',
     body: `<div class="form-grid">
       ${fld('valor_nominal_calbas', 'Valor nominal', p.valor_nominal_calbas, 'type="number" step="any" min="0" inputmode="decimal"', true)}
-      <div class="field"><label for="p-unidad">Unidad <span class="req">*</span></label><select id="p-unidad" name="unidad_calbas">${['g', 'kg'].map((u) => `<option ${p.unidad_calbas === u ? 'selected' : ''}>${u}</option>`).join('')}</select></div>
+      <div class="field"><label for="p-unidad">Unidad <span class="req">*</span></label><select id="p-unidad" name="unidad_calbas">${['g', 'kg'].map((u) => `<option value="${u}" ${p.unidad_calbas === u ? 'selected' : ''}>${U(u)}</option>`).join('')}</select></div>
       ${fld('fecha_calibracion_calbas', 'Fecha de calibración', p.fecha_calibracion_calbas, 'type="date"')}
       ${fld('fecha_vencimiento_calbas', 'Vencimiento', p.fecha_vencimiento_calbas, 'type="date"')}
       ${activo(p.activa_calbas)}</div>`,

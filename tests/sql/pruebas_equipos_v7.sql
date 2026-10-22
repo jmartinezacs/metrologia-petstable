@@ -82,3 +82,22 @@ begin
 
   raise exception E'REPORTE (revertido)\n%', out;
 end $$;
+
+-- v7.1 · Seguimiento de «no cumple» (requiere al menos una verificación NO_CUMPLE vigente)
+do $$
+declare admin uuid := (select id_calbas from perfiles_calbas where rol_calbas='admin' and activo_calbas limit 1);
+ v uuid := (select id_calbas from verificaciones_calbas where dictamen_calbas='NO_CUMPLE' and estado_calbas='vigente' limit 1);
+ s uuid; o text := '';
+begin
+  perform set_config('request.jwt.claims', json_build_object('sub', admin, 'role','authenticated')::text, true);
+  set local role authenticated;
+  o := o || format('[1] no cumple pendientes: %s', (select count(*) from vw_no_cumple_calbas where estado_seguimiento_calbas <> 'cerrado')) || E'\n';
+  insert into seguimientos_calbas(origen_calbas, verificacion_id_calbas, accion_calbas, descripcion_calbas) values ('bascula', v, 'AJUSTE', 'Ajuste de cero') returning id_calbas into s;
+  begin update seguimientos_calbas set estado_calbas='cerrado' where id_calbas=s; o := o || '[2] FALLA cerró sin evidencia'||E'\n';
+  exception when others then o := o || '[2] OK sin evidencia rechazado'||E'\n'; end;
+  update seguimientos_calbas set estado_calbas='cerrado', cierre_calbas='Re-verificada, cumple' where id_calbas=s;
+  o := o || format('[3] pendientes tras cierre: %s', (select count(*) from vw_no_cumple_calbas where estado_seguimiento_calbas <> 'cerrado')) || E'\n';
+  begin update seguimientos_calbas set descripcion_calbas='x2' where id_calbas=s; o := o || '[4] FALLA editó cerrado'||E'\n';
+  exception when others then o := o || '[4] OK cerrado inmutable'||E'\n'; end;
+  raise exception E'REPORTE (revertido)\n%', o;
+end $$;

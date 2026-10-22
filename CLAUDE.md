@@ -8,7 +8,7 @@ Guía para Claude Code al trabajar en este repositorio.
 
 - **Idioma:** la interfaz está en español y el usuario se comunica en español; responde en español. Zona horaria: `America/Mexico_City`.
 - **Arquitectura:** la misma de `serviciomedico-petstable` y `pruebasindustriales-petstable`: módulos ES en vanilla JS, sin npm ni framework, con supabase-js 2.45.4, lucide 0.453.0 y chart.js 4.4.4 desde jsdelivr a versiones fijas.
-- **Repositorio:** https://github.com/jmartinezacs/metrologia-petstable. Vercel publica la raíz. El usuario decide cuándo publicar en producción, así que trabaja en ramas y no empujes a `main` sin su autorización.
+- **Repositorio:** https://github.com/jmartinezacs/metrologia-petstable. Vercel publica `main` en https://metrologia-petstable.vercel.app. Por indicación del usuario, los cambios se suben **directo a `main`** (subiendo `APP_VERSION` para que aparezca el aviso de actualización).
 
 ## Publicación
 

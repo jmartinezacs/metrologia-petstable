@@ -46,10 +46,11 @@ async function load() {
   body.innerHTML = `<div class="grid grid-4">${'<div class="kpi"><div class="skeleton" style="width:60%"></div><div class="skeleton" style="height:30px;width:40%"></div></div>'.repeat(4)}</div>`;
   const hoy = todayISO(), inicio = `${addDays(hoy, -180).slice(0, 7)}-01`;
   try {
-    const [eqs, ver, alertas] = await Promise.all([
+    const [eqs, ver, alertas, nc] = await Promise.all([
       cargarEquipos(),
       sb.from('vw_verificaciones_todas_calbas').select('fecha_calbas, dictamen_calbas, tipo_clave_calbas').eq('estado_calbas', 'vigente').gte('fecha_calbas', inicio).limit(5000).then(must),
       sb.from('vw_alertas_tendencia_calbas').select('*').then((r) => r).catch(() => ({ data: [] })),
+      sb.from('vw_no_cumple_calbas').select('id_calbas, estado_seguimiento_calbas').neq('estado_seguimiento_calbas', 'cerrado').then((r) => r).catch(() => ({ data: [] })),
     ]);
     if (t !== token || !root) return;
     const activos = eqs.filter((e) => e.activo_calbas);
@@ -58,23 +59,29 @@ async function load() {
     const ncMes = verMes.filter((v) => v.dictamen_calbas === 'NO_CUMPLE').length;
     const pendientes = activos.filter((e) => ['vencida', 'sin_registro', 'por_vencer'].includes(e.estado_verificacion_calbas));
     const calAlert = activos.filter((e) => ['vencida', 'por_vencer'].includes(e.estado_calibracion_calbas));
+    const calVig = activos.filter((e) => ['vigente', 'por_vencer'].includes(e.estado_calibracion_calbas));
+    const calPorVencer = activos.filter((e) => e.estado_calibracion_calbas === 'por_vencer').length;
+    const calVenc = activos.filter((e) => e.estado_calibracion_calbas === 'vencida').length;
     const tendencia = (alertas.data || []).filter((a) => a.alerta_tendencia_calbas);
+    const sinCerrar = nc.data || [];
+    const sinSeg = sinCerrar.filter((x) => x.estado_seguimiento_calbas === 'sin_seguimiento').length;
     const conformes = verMes.length ? Math.round(((verMes.length - ncMes) / verMes.length) * 100) : null;
+    const nTipos = new Set(activos.map((e) => e.tipo_clave_calbas)).size;
 
     destroyCharts();
     body.innerHTML = `
       <div class="grid grid-4">
-        ${kpi('i-blue', 'gauge', 'Equipos activos', activos.length, `${new Set(activos.map((e) => e.tipo_clave_calbas)).size} tipos de instrumento`, '#/equipos')}
-        ${kpi('c2 i-amber', 'clipboard-check', 'Verificaciones del mes', verMes.length, conformes === null ? 'Sin registros este mes' : `${conformes} % conformes`, '#/historial')}
-        ${kpi(`${pendientes.some((e) => e.estado_verificacion_calbas !== 'por_vencer') ? 'danger' : 'c3'} i-violet`, 'clock-alert', 'Por verificar', pendientes.length, 'Atrasadas, sin registro o próximas', '#/equipos?estado=ver_atrasada')}
-        ${kpi(`${calAlert.some((e) => e.estado_calibracion_calbas === 'vencida') ? 'danger' : 'c4'} i-pink`, 'calendar-x', 'Calibraciones en riesgo', calAlert.length, 'Vencidas o por vencer en 30 días', '#/calibraciones')}
+        ${kpi('i-blue', 'gauge', 'Equipos activos', activos.length, `${nTipos} ${nTipos === 1 ? 'tipo' : 'tipos'} de instrumento`, '#/equipos')}
+        ${kpi('c2 i-amber', 'clipboard-check', 'Verificaciones mensuales', verMes.length, conformes === null ? 'Sin registros este mes' : `${conformes} % conformes este mes`, '#/historial')}
+        ${kpi('c3 i-green', 'badge-check', 'Calibraciones vigentes', calVig.length, calPorVencer ? `${calPorVencer} por vencer en 30 días` : `De ${activos.length} equipos activos`, '#/calibraciones?estado=vigente')}
+        ${kpi(`${calVenc ? 'danger' : 'c4'} i-red`, 'calendar-x', 'Calibraciones vencidas', calVenc, calVenc ? 'Requieren calibración externa' : 'Ninguna vencida', '#/calibraciones?estado=vencida')}
       </div>
-      ${tendencia.length || ncMes ? `<div class="notice error mt">${icon('triangle-alert')}<span>${tendencia.length ? `<b>${tendencia.length} báscula(s) con alerta de tendencia</b> (3 o más “no cumple” en sus últimas 5 verificaciones). ` : ''}${ncMes ? `${ncMes} verificación(es) con dictamen “no cumple” este mes.` : ''}</span>
-        <button class="btn secondary sm" data-dash="#/historial?dictamen=NO_CUMPLE">Revisar</button></div>` : ''}
+      ${sinCerrar.length || tendencia.length ? `<div class="notice error mt">${icon('triangle-alert')}<span>${sinCerrar.length ? `<b>${sinCerrar.length} ${sinCerrar.length === 1 ? 'verificación «no cumple» sin cerrar' : 'verificaciones «no cumple» sin cerrar'}</b>${sinSeg ? ` (${sinSeg} sin acción correctiva)` : ''}. Registra la acción tomada (ajuste, reparación, calibración o retiro) y ciérrala con su evidencia; el aviso desaparece al cerrarlas. ` : ''}${tendencia.length ? `<b>${tendencia.length} báscula(s) con alerta de tendencia</b> (3 o más «no cumple» en sus últimas 5 verificaciones).` : ''}</span>
+        <button class="btn red sm" data-dash="#/historial?seguimiento=pendiente">${icon('wrench')} Dar seguimiento</button></div>` : ''}
       <div class="grid grid-main mt">
-        <div class="card">${cardHead('Pendientes de verificación', 'Ordenados por urgencia', `<button class="btn secondary sm" data-dash="#/verificar">${icon('clipboard-plus')} Verificar</button>`)}
+        <div class="card">${cardHead('Pendientes de verificación', 'Ordenados por urgencia', `<button class="btn grad-orange" data-dash="#/verificar">${icon('clipboard-plus')} Verificar ahora</button>`)}
           ${listaPendientes(pendientes)}</div>
-        <div class="card">${cardHead('Calibraciones próximas', 'Vencidas y por vencer', `<button class="btn secondary sm" data-dash="#/calibraciones">${icon('badge-check')} Ver todas</button>`)}
+        <div class="card">${cardHead('Calibraciones próximas', 'Vencidas y por vencer', `<button class="btn grad-teal" data-dash="#/calibraciones">${icon('badge-check')} Ver todas las calibraciones</button>`)}
           ${listaCal(calAlert)}</div>
       </div>
       <div class="grid grid-2 mt">
