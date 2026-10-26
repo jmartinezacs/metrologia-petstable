@@ -38,5 +38,6 @@ Sirve una build `-Prueba` con `tools\serve.ps1 -Root <carpeta>`. Luego sustituye
 ## Pendientes conocidos (no resueltos en v7.0)
 
 - `alerta_inmediata_calbas` usa columnas antiguas (`desviacion_pct_calbas`, `tolerancia_pct_aplicada_calbas`). El frontend la invoca tras un «no cumple» de báscula, pero el correo probablemente falla.
+- `gestionar_usuarios_calbas_admin` al desactivar un usuario lo bloquea (ban) en Supabase Auth: le quita acceso a TODAS las apps de Pet's Table. Las cuentas existentes se agregan con `calbas_agregar_cuenta` (no toca Auth).
 - `gestionar_usuarios_calbas_admin` escribe `activo`/`inactivo` en `invitaciones_calbas.estado_calbas`, cuyo CHECK no lo permite. Solo genera una advertencia.
 - No hay alertas por correo para equipos genéricos ni hay un cron de resumen diario.

@@ -318,6 +318,7 @@ export function setTheme(t) {
   updateThemeButton();
   setTimeout(restyleCharts, 0);
 }
+window.__calbasSetTheme = setTheme;
 window.matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => {
   if (currentTheme() !== 'system') return;
   updateThemeButton();

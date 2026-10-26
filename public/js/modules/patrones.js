@@ -94,7 +94,7 @@ async function formPesa(id) {
     title: id ? `Editar ${p.codigo_calbas}` : 'Nueva pesa patrón', subtitle: 'El código (PP-###) y la descripción se generan automáticamente.', size: 'md',
     body: `<div class="form-grid">
       ${fld('valor_nominal_calbas', 'Valor nominal', p.valor_nominal_calbas, 'type="number" step="any" min="0" inputmode="decimal"', true)}
-      <div class="field"><label for="p-unidad">Unidad <span class="req">*</span></label><select id="p-unidad" name="unidad_calbas">${['g', 'kg'].map((u) => `<option value="${u}" ${p.unidad_calbas === u ? 'selected' : ''}>${U(u)}</option>`).join('')}</select></div>
+      <div class="field"><label for="p-unidad">Unidad <span class="req">*</span></label><select id="p-unidad" name="unidad_calbas" data-unidad>${['g', 'kg'].map((u) => `<option value="${u}" ${p.unidad_calbas === u ? 'selected' : ''}>${U(u)}</option>`).join('')}</select></div>
       ${fld('fecha_calibracion_calbas', 'Fecha de calibración', p.fecha_calibracion_calbas, 'type="date"')}
       ${fld('fecha_vencimiento_calbas', 'Vencimiento', p.fecha_vencimiento_calbas, 'type="date"')}
       ${activo(p.activa_calbas)}</div>`,
@@ -121,7 +121,7 @@ async function formPatron(id) {
       <div class="field"><label for="p-tipo">Se usa para verificar <span class="req">*</span></label><select id="p-tipo" name="tipo_id_calbas" required ${id ? 'disabled' : ''}>${tipos.map((t) => `<option value="${t.id_calbas}" ${t.id_calbas === t0?.id_calbas ? 'selected' : ''}>${esc(t.nombre_calbas)}</option>`).join('')}</select></div>
       ${fld('descripcion_calbas', 'Descripción', p.descripcion_calbas, 'maxlength="140" placeholder="Ej. Buffer pH 7.00 certificado / Termómetro patrón digital"', true)}
       ${fld('valor_nominal_calbas', 'Valor nominal (vacío si es variable)', p.valor_nominal_calbas, 'type="number" step="any" inputmode="decimal"')}
-      <div class="field"><label for="p-unidad">Unidad <span class="req">*</span></label><select id="p-unidad" name="unidad_calbas">${t0 ? unidades(t0) : ''}</select></div>
+      <div class="field"><label for="p-unidad">Unidad <span class="req">*</span></label><select id="p-unidad" name="unidad_calbas" data-unidad>${t0 ? unidades(t0) : ''}</select></div>
       ${fld('incertidumbre_calbas', 'Incertidumbre (±)', p.incertidumbre_calbas, 'type="number" step="any" min="0" inputmode="decimal"')}
       ${fld('numero_certificado_calbas', 'Número de certificado', p.numero_certificado_calbas, 'maxlength="80"')}
       ${fld('proveedor_calbas', 'Proveedor / laboratorio', p.proveedor_calbas, 'maxlength="120"')}

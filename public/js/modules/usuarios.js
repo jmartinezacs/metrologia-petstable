@@ -5,7 +5,7 @@
 // =====================================================================
 import {
   sb, state, esc, icon, refreshIcons, toast, openModal, checkForm, must, pill, avatarHTML, fotoDe, getDepartamentos,
-  prepararFoto, blobABase64, emptyState, sanitizeSearch, debounce,
+  prepararFoto, blobABase64, emptyState, sanitizeSearch, debounce, errMsg, fmtDateTime,
 } from '../core.js';
 
 const PUESTOS = [
@@ -63,53 +63,173 @@ function pintar() {
   refreshIcons();
 }
 
+// ---------------- Fotos existentes (bucket «avatares») ----------------
+async function elegirFotoExistente() {
+  const { data, error } = await sb.storage.from('avatares').list('', { limit: 500, sortBy: { column: 'name', order: 'asc' } });
+  if (error) { toast(errMsg(error), 'error'); return null; }
+  const fotos = (data || []).filter((f) => /\.(png|jpe?g|webp)$/i.test(f.name));
+  if (!fotos.length) { toast('No hay fotos en la carpeta «avatares».', 'warning'); return null; }
+  const url = (n) => sb.storage.from('avatares').getPublicUrl(n).data.publicUrl;
+  const r = await openModal({
+    title: 'Fotos existentes', subtitle: 'Carpeta «avatares» de Supabase Storage. Toca una foto para usarla.', size: 'lg', confirmDiscard: false,
+    body: `<div class="toolbar"><div class="search">${icon('search')}<input type="search" id="gal-q" placeholder="Filtrar por nombre" aria-label="Filtrar fotos"></div></div>
+      <div class="photo-gallery" id="gal">${fotos.map((f) => `<button type="button" data-url="${esc(url(f.name))}" data-n="${esc(f.name.toLowerCase())}">
+        <img src="${esc(url(f.name))}" alt="" loading="lazy"><span>${esc(f.name.replace(/\.[^.]+$/, ''))}</span></button>`).join('')}</div>`,
+    onOpen: ({ wrap, close }) => {
+      wrap.querySelector('#gal').addEventListener('click', (e) => { const b = e.target.closest('[data-url]'); if (b) close(b.dataset.url); });
+      wrap.querySelector('#gal-q').addEventListener('input', (e) => {
+        const q = e.target.value.toLowerCase();
+        wrap.querySelectorAll('#gal [data-n]').forEach((b) => b.classList.toggle('hidden', !b.dataset.n.includes(q)));
+      });
+    },
+  });
+  return typeof r === 'string' ? r : null;
+}
+
+// Sube la foto elegida por un administrador a calbas-avatars/<uid>/ (política de administradores)
+async function subirFotoDe(uid, blob) {
+  const path = `${uid}/${Date.now()}.jpg`;
+  must(await sb.storage.from('calbas-avatars').upload(path, blob, { contentType: 'image/jpeg', upsert: false, cacheControl: '31536000' }));
+  return sb.storage.from('calbas-avatars').getPublicUrl(path).data.publicUrl;
+}
+
+const seccion = (ico, titulo, sub = '') => `<div class="form-section full"><span class="fs-ico">${icon(ico)}</span><div><b>${esc(titulo)}</b>${sub ? `<small>${esc(sub)}</small>` : ''}</div></div>`;
+
+// ---------------- Alta / edición ----------------
 async function formUsuario(u = null) {
   const deptos = (await getDepartamentos({ force: true })).filter((d) => d.activo_calbas);
   const depSel = deptos.find((d) => d.nombre_calbas.toLowerCase() === String(u?.departamento_calbas || '').toLowerCase())?.id_calbas || '';
   const puesto = String(u?.puesto_calbas || '').trim();
   const estandar = !puesto || PUESTOS.includes(puesto);
-  let foto = null;
+  const self = u && u.id_calbas === state.session.user.id;
+  let fotoBlob = null, fotoUrl = null, cuenta = null, buscaTok = 0, resultados = [];
+
   return openModal({
-    title: u ? 'Editar usuario' : 'Agregar usuario', subtitle: 'Los cambios se guardan en la cuenta Pet\'s Table, el perfil y la fotografía.', size: 'lg',
-    body: `<div class="form-grid">
-      <div class="field full photo-pick"><span id="u-prev">${avatarHTML(u?.nombre_completo_calbas || '?', u ? fotoDe(u.correo_calbas, u.avatar_url_calbas) : '', 'xl')}</span>
-        <div><label for="u-foto" class="btn secondary sm">${icon('camera')} ${u ? 'Cambiar fotografía' : 'Agregar fotografía'}</label><input id="u-foto" type="file" accept="image/jpeg,image/png,image/webp" class="sr-only"><small class="hint">JPG, PNG o WEBP · máx. 5 MB</small></div></div>
-      <div class="field full"><label for="u-nombre">Nombre completo <span class="req">*</span></label><input id="u-nombre" name="nombre" required maxlength="140" value="${esc(u?.nombre_completo_calbas || '')}"></div>
-      <div class="field"><label for="u-email">Correo corporativo <span class="req">*</span></label><input id="u-email" name="email" type="email" required maxlength="120" value="${esc(u?.correo_calbas || '')}" autocomplete="off" placeholder="nombre@petstable.mx"></div>
-      <div class="field"><label for="u-dep">Departamento <span class="req">*</span></label><select id="u-dep" name="departamento" required><option value="">Selecciona…</option>${deptos.map((d) => `<option value="${d.id_calbas}" ${d.id_calbas === depSel ? 'selected' : ''}>${esc(d.nombre_calbas)}</option>`).join('')}</select></div>
-      <div class="field"><label for="u-puesto">Puesto</label><select id="u-puesto" name="puesto_sel"><option value="">Selecciona…</option>${PUESTOS.map((p) => `<option ${p === puesto ? 'selected' : ''}>${esc(p)}</option>`).join('')}<option value="__otro" ${estandar ? '' : 'selected'}>Otro…</option></select></div>
-      <div class="field ${estandar ? 'hidden' : ''}" id="u-otro-f"><label for="u-otro">Especifica el puesto</label><input id="u-otro" name="puesto_otro" maxlength="140" value="${esc(estandar ? '' : puesto)}"></div>
-      <div class="field"><label for="u-rol">Rol de acceso</label><select id="u-rol" name="rol"><option value="usuario">Usuario</option><option value="admin" ${u?.rol_calbas === 'admin' ? 'selected' : ''}>Administrador</option></select></div>
-      <div class="field"><label for="u-pw">${u ? 'Nueva contraseña (opcional)' : 'Contraseña inicial'} ${u ? '' : '<span class="req">*</span>'}</label><input id="u-pw" name="password" type="password" minlength="8" maxlength="128" autocomplete="new-password" ${u ? '' : 'required'} placeholder="Mínimo 8 caracteres"></div>
-      <label class="switch-row full"><input type="checkbox" name="activo" ${u?.activo_calbas === false ? '' : 'checked'}> <span><b>Usuario activo</b><small>Los usuarios inactivos no pueden iniciar sesión en Metrología.</small></span></label>
-      <p class="hint full">Un usuario solo ve y verifica los equipos de su departamento. Los administradores ven todo.</p></div>`,
+    title: u ? 'Editar usuario' : 'Agregar usuario', subtitle: u ? u.correo_calbas : 'Da acceso a Metrología a una persona de Pet\'s Table.', size: 'lg',
+    submitText: u ? 'Guardar cambios' : 'Agregar usuario',
+    body: `
+      ${u ? '' : `<div class="acc-box">
+        ${seccion('search', 'Buscar en cuentas existentes', 'Si la persona ya usa otra app de Pet\'s Table, selecciónala: se llenan sus datos y su foto y entrará con su misma contraseña.')}
+        <div class="search">${icon('search')}<input type="search" id="us-busca" placeholder="Nombre o correo (mín. 2 letras)" autocomplete="off" aria-label="Buscar cuentas existentes"></div>
+        <div class="acc-results" id="us-busca-res"></div>
+        <div id="us-cuenta-sel"></div>
+      </div>`}
+      <div class="user-form-top">
+        <div class="photo-pick">
+          <span id="us-prev">${avatarHTML(u?.nombre_completo_calbas || '?', u ? fotoDe(u.correo_calbas, u.avatar_url_calbas) : '', 'xl')}</span>
+          <div class="btns">
+            <label class="btn orange sm" for="us-foto" style="cursor:pointer">${icon('camera')} Subir foto</label>
+            <button type="button" class="btn teal sm" id="us-galeria">${icon('images')} Fotos existentes</button>
+          </div>
+          <input id="us-foto" type="file" accept="image/jpeg,image/png,image/webp" class="sr-only">
+          <small class="hint">JPG, PNG o WEBP · máx. 5 MB. Se recorta en cuadrado.</small>
+        </div>
+        <div class="form-grid">
+          ${seccion('id-card', 'Datos personales')}
+          <div class="field full"><label for="us-nombre">Nombre completo <span class="req">*</span></label><input id="us-nombre" name="nombre" required maxlength="140" value="${esc(u?.nombre_completo_calbas || '')}" autocomplete="off"></div>
+          <div class="field full"><label for="us-email">Correo corporativo <span class="req">*</span></label><input id="us-email" name="email" type="email" required maxlength="120" value="${esc(u?.correo_calbas || '')}" autocomplete="off" placeholder="nombre@petstable.mx" ${u ? 'disabled' : ''}></div>
+          ${seccion('building-2', 'Asignación', 'Un usuario solo ve y verifica los equipos de su departamento.')}
+          <div class="field"><label for="us-dep">Departamento <span class="req">*</span></label><select id="us-dep" name="departamento" required><option value="">Selecciona…</option>${deptos.map((d) => `<option value="${d.id_calbas}" ${d.id_calbas === depSel ? 'selected' : ''}>${esc(d.nombre_calbas)}</option>`).join('')}</select></div>
+          <div class="field"><label for="us-puesto">Puesto</label><select id="us-puesto" name="puesto_sel"><option value="">Selecciona…</option>${PUESTOS.map((p) => `<option ${p === puesto ? 'selected' : ''}>${esc(p)}</option>`).join('')}<option value="__otro" ${estandar ? '' : 'selected'}>Otro…</option></select></div>
+          <div class="field full ${estandar ? 'hidden' : ''}" id="us-otro-f"><label for="us-otro">Especifica el puesto</label><input id="us-otro" name="puesto_otro" maxlength="140" value="${esc(estandar ? '' : puesto)}"></div>
+          <div class="field full"><label>Rol de acceso</label>
+            <div class="rol-pick">
+              <label class="rol-opt"><input type="radio" name="rol" value="usuario" ${u?.rol_calbas !== 'admin' ? 'checked' : ''} ${self ? 'disabled' : ''}><span>${icon('user')}<b>Usuario</b><small>Verifica y consulta los equipos de su departamento</small></span></label>
+              <label class="rol-opt"><input type="radio" name="rol" value="admin" ${u?.rol_calbas === 'admin' ? 'checked' : ''} ${self ? 'disabled' : ''}><span>${icon('crown')}<b>Administrador</b><small>Gestión completa de equipos, calibraciones y usuarios</small></span></label>
+            </div></div>
+          <div id="us-acceso" class="full form-grid" style="padding:0">
+            ${seccion('key-round', 'Acceso')}
+            <div class="field full"><label for="us-pw">${u ? 'Nueva contraseña (opcional)' : 'Contraseña inicial'} ${u ? '' : '<span class="req">*</span>'}</label><input id="us-pw" name="password" type="password" minlength="8" maxlength="128" autocomplete="new-password" ${u ? '' : 'required'} placeholder="Mínimo 8 caracteres"></div>
+            ${u ? `<label class="switch-row full"><input type="checkbox" name="activo" ${u.activo_calbas === false ? '' : 'checked'} ${self ? 'disabled' : ''}><span><b>Usuario activo</b><small>Desactivarlo bloquea su cuenta de Pet's Table (también en las demás aplicaciones).</small></span></label>` : ''}
+          </div>
+        </div>
+      </div>`,
     onOpen: ({ form }) => {
-      const sel = form.querySelector('#u-puesto');
-      sel.addEventListener('change', () => form.querySelector('#u-otro-f').classList.toggle('hidden', sel.value !== '__otro'));
-      form.querySelector('#u-foto').addEventListener('change', async (e) => {
+      const prev = form.querySelector('#us-prev');
+      const nombre = () => form.elements.nombre.value || '?';
+      const sel = form.querySelector('#us-puesto');
+      sel.addEventListener('change', () => form.querySelector('#us-otro-f').classList.toggle('hidden', sel.value !== '__otro'));
+      form.querySelector('#us-foto').addEventListener('change', async (e) => {
         const f = e.target.files[0];
         if (!f) return;
-        try { foto = await prepararFoto(f); form.querySelector('#u-prev').innerHTML = `<span class="avatar has-img xl"><img src="${URL.createObjectURL(foto)}" alt=""></span>`; }
-        catch (err) { toast(err.message, 'error'); }
+        try { fotoBlob = await prepararFoto(f); fotoUrl = null; prev.innerHTML = `<span class="avatar has-img xl"><img src="${URL.createObjectURL(fotoBlob)}" alt=""></span>`; }
+        catch (err) { toast(errMsg(err), 'error'); }
+        e.target.value = '';
+      });
+      const ponerFoto = (url) => { fotoBlob = null; fotoUrl = url; prev.innerHTML = avatarHTML(nombre(), url, 'xl'); };
+      form.querySelector('#us-galeria').addEventListener('click', async () => { const url = await elegirFotoExistente(); if (url) ponerFoto(url); });
+      if (u) return;
+      const res = form.querySelector('#us-busca-res');
+      form.querySelector('#us-busca').addEventListener('input', debounce(async (ev) => {
+        const q = ev.target.value.trim();
+        const t = ++buscaTok;
+        if (q.length < 2) { res.innerHTML = ''; return; }
+        res.innerHTML = '<span class="hint">Buscando…</span>';
+        const { data, error } = await sb.rpc('calbas_buscar_cuentas', { p_q: q });
+        if (t !== buscaTok) return;
+        if (error) { res.innerHTML = `<span class="hint" style="color:var(--bad)">${esc(errMsg(error))}</span>`; return; }
+        resultados = data || [];
+        res.innerHTML = resultados.length ? resultados.map((r, i) => `<button type="button" data-cuenta="${i}" ${r.ya_registrado ? 'disabled' : ''}>
+            ${avatarHTML(r.nombre, r.foto_sugerida)}<span class="acc-main"><b>${esc(r.nombre)}</b><small>${esc(r.email)}${r.ultimo_acceso ? ` · último acceso ${fmtDateTime(r.ultimo_acceso)}` : ''}</small></span>
+            ${r.ya_registrado ? pill('Ya tiene acceso', 'gray') : pill('Seleccionar', 'ok')}</button>`).join('')
+          : '<span class="hint">No hay cuentas con ese texto. Captura los datos abajo para crear una nueva.</span>';
+        refreshIcons();
+      }, 350));
+      res.addEventListener('click', (ev) => {
+        const b = ev.target.closest('[data-cuenta]');
+        if (!b || b.disabled) return;
+        cuenta = resultados[Number(b.dataset.cuenta)];
+        form.elements.nombre.value = cuenta.nombre;
+        form.elements.email.value = cuenta.email;
+        form.elements.email.disabled = true;
+        if (cuenta.foto_sugerida && !fotoBlob) ponerFoto(cuenta.foto_sugerida);
+        // Una cuenta existente conserva su contraseña: no se pide
+        form.querySelector('#us-acceso').classList.add('hidden');
+        form.elements.password.required = false;
+        form.querySelector('#us-cuenta-sel').innerHTML = `<div class="notice" style="margin:8px 0 0">${icon('check-circle-2')}<span><b>${esc(cuenta.nombre)}</b> ya tiene cuenta Pet's Table: entrará con su misma contraseña. Completa departamento, puesto y rol. <button type="button" class="link-btn" id="us-quitar-cuenta">Quitar selección</button></span></div>`;
+        res.querySelectorAll('[data-cuenta]').forEach((x) => x.classList.toggle('sel', x === b));
+        refreshIcons();
+        form.querySelector('#us-quitar-cuenta').addEventListener('click', () => {
+          cuenta = null; form.elements.email.disabled = false; form.elements.password.required = true;
+          form.querySelector('#us-acceso').classList.remove('hidden');
+          form.querySelector('#us-cuenta-sel').innerHTML = '';
+          res.querySelectorAll('.sel').forEach((x) => x.classList.remove('sel'));
+        });
+        form.elements.departamento.focus();
       });
     },
     onSubmit: async ({ form }) => {
       if (!checkForm(form, { email: (v) => (/@petstable\.mx$/i.test(v) ? '' : 'Usa un correo @petstable.mx.') })) return false;
       const f = form.elements;
+      const rol = form.querySelector('input[name="rol"]:checked')?.value || 'usuario';
+      const puestoFinal = f.puesto_sel.value === '__otro' ? f.puesto_otro.value.trim() : f.puesto_sel.value;
+      // Cuenta existente: se registra solo el acceso a Metrología (sin tocar Auth)
+      if (cuenta) {
+        const url = fotoBlob ? await subirFotoDe(cuenta.id, fotoBlob) : fotoUrl;
+        must(await sb.rpc('calbas_agregar_cuenta', { p_id: cuenta.id, p_nombre: f.nombre.value.trim(), p_puesto: puestoFinal || null, p_rol: rol, p_departamento: f.departamento.value, p_avatar: url || null }));
+        toast(`${cuenta.nombre} ya tiene acceso a Metrología.`, 'success');
+        return true;
+      }
       const payload = {
         action: u ? 'update' : 'create', user_id: u?.id_calbas, nombre: f.nombre.value.trim(), email: f.email.value.trim().toLowerCase(),
-        departamento_id: f.departamento.value, puesto: f.puesto_sel.value === '__otro' ? f.puesto_otro.value.trim() : f.puesto_sel.value,
-        rol: f.rol.value, password: f.password.value, activo: f.activo.checked,
+        departamento_id: f.departamento.value, puesto: puestoFinal, rol: self ? u.rol_calbas : rol, password: f.password.value,
+        activo: u ? (self ? true : f.activo.checked) : true,
       };
-      if (foto) { payload.avatar_base64 = await blobABase64(foto); payload.avatar_mime = 'image/jpeg'; }
+      if (fotoBlob && !u) { payload.avatar_base64 = await blobABase64(fotoBlob); payload.avatar_mime = 'image/jpeg'; }
       const { data, error } = await sb.functions.invoke('gestionar_usuarios_calbas_admin', { body: payload });
       if (error) {
         let msg = error.message;
         try { msg = (await error.context?.json())?.error || msg; } catch { /* sin cuerpo */ }
+        if (/already (been )?registered|already exists/i.test(msg)) msg = 'Ese correo ya tiene cuenta Pet\'s Table. Búscalo arriba en «Buscar en cuentas existentes».';
         throw new Error(msg);
       }
       if (!data?.ok) throw new Error(data?.error || 'No se pudo guardar el usuario.');
+      // En edición la foto se guarda directo en el perfil (subida o elegida de las existentes)
+      const uid = data.user_id || u?.id_calbas;
+      const nueva = u && fotoBlob ? await subirFotoDe(uid, fotoBlob) : fotoUrl;
+      if (nueva) must(await sb.from('perfiles_calbas').update({ avatar_url_calbas: nueva }).eq('id_calbas', uid));
       toast(u ? 'Usuario actualizado.' : 'Usuario creado.', 'success');
+      return true;
     },
   });
 }

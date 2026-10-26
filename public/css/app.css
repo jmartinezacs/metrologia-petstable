@@ -1315,3 +1315,116 @@ body[data-route="verificar"] .fab-cita { display: none; }
   .ficha-stats, .ficha-cols { grid-template-columns: minmax(0, 1fr); }
   .result-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* =====================================================================
+   v7.2 · KPI, tipos, formularios, usuarios, perfil y bitácora
+   ===================================================================== */
+/* KPI: la barra lateral toma el color de su ícono */
+.kpi::before { width: 5px; }
+.kpi.i-blue::before { background: linear-gradient(180deg, #2563EB, #60A5FA) !important; }
+.kpi.i-amber::before { background: linear-gradient(180deg, #F59E0B, #FCD34D) !important; }
+.kpi.i-violet::before { background: linear-gradient(180deg, #7C3AED, #C084FC) !important; }
+.kpi.i-pink::before { background: linear-gradient(180deg, #DB2777, #F472B6) !important; }
+.kpi.i-green::before { background: linear-gradient(180deg, #15985C, #4ADE80) !important; }
+.kpi.i-red::before { background: linear-gradient(180deg, #C42F37, #F87171) !important; }
+
+/* Tarjetas de tipo de equipo (filtro rápido) */
+.type-strip { gap: 12px; padding: 4px 2px 14px; }
+.type-chip { min-width: 210px; padding: 12px 14px; gap: 12px; align-items: center; white-space: normal; text-align: left; }
+.type-chip .tc-ico { width: 44px; height: 44px; border-radius: 12px; flex: 0 0 auto; }
+.type-chip .tc-ico svg { width: 22px; height: 22px; }
+.type-chip .tc-ico:not([class*="t-"]) { background: linear-gradient(135deg, var(--navy), var(--navy-2)); color: #fff; }
+.type-chip .tc-txt { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
+.type-chip .tc-txt small { color: var(--muted); font-size: 11.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; white-space: nowrap; }
+.type-chip .tc-txt b { font-size: 26px; line-height: 1.05; letter-spacing: -.03em; color: var(--text); }
+.type-chip .tc-alert, .type-chip .tc-ok { align-self: flex-end; display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 999px; font-size: 11px; font-weight: 800; white-space: nowrap; }
+.type-chip .tc-alert { background: var(--bad-bg); color: var(--bad); border: 1px solid var(--bad-line); }
+.type-chip .tc-alert svg { width: 13px; height: 13px; }
+.type-chip .tc-ok { background: var(--ok-bg); color: var(--ok); border: 1px solid var(--ok-line); }
+.type-chip > span:last-of-type { font-size: 11px; }
+
+/* Formularios por secciones */
+.form-section { display: flex; align-items: center; gap: 10px; padding: 10px 0 2px; margin-top: 4px; border-top: 1px dashed var(--line); }
+.form-grid > .form-section:first-child, .form-grid > .form-section:first-of-type { border-top: 0; margin-top: 0; padding-top: 0; }
+.form-section .fs-ico { width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center; background: var(--orange-soft); color: var(--orange); flex: 0 0 auto; }
+.form-section .fs-ico svg { width: 17px; height: 17px; }
+.form-section b { display: block; font-size: 14px; }
+.form-section small { display: block; color: var(--muted); font-size: 12px; font-weight: 500; }
+.form-banner { display: flex; align-items: center; gap: 14px; padding: 14px 16px; margin-bottom: 14px; border-radius: 16px; background: linear-gradient(135deg, var(--orange-soft), var(--turq-soft)); border: 1px solid var(--line); }
+.form-banner > div { display: flex; flex-direction: column; gap: 2px; }
+.form-banner b { font-size: 16px; }
+.form-banner span:not(.eq-ico) { color: var(--muted); font-size: 12.5px; }
+.input-suffix { position: relative; }
+.input-suffix input { padding-right: 58px; }
+.input-suffix .sfx { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); padding: 3px 8px; border-radius: 8px; background: var(--soft); border: 1px solid var(--line); color: var(--muted); font-size: 12px; font-weight: 800; pointer-events: none; }
+.pro-form .field .hint { display: block; margin-top: 4px; font-size: 11.5px; }
+.switch-row { cursor: pointer; }
+.switch-row > span { display: flex; flex-direction: column; gap: 2px; text-align: left; }
+.switch-row > span small { color: var(--muted); font-size: 12px; font-weight: 500; }
+.switch-row input { flex: 0 0 auto; }
+
+/* Usuarios */
+.user-form-top { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 22px; align-items: start; margin-top: 12px; }
+.user-form-top .photo-pick { flex-direction: column; text-align: center; gap: 12px; padding: 16px 12px; border-radius: 16px; background: var(--soft); border: 1px solid var(--line); position: sticky; top: 0; }
+.user-form-top .photo-pick .avatar.xl { width: 140px; height: 140px; font-size: 44px; }
+.user-form-top .photo-pick .btns { flex-direction: column; width: 100%; }
+.user-form-top .photo-pick .btns .btn { width: 100%; }
+.acc-box .search { width: 100%; margin-top: 8px; }
+.acc-box .acc-results:empty { display: none; }
+.acc-results .acc-main { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.acc-results .acc-main small { color: var(--muted); }
+.rol-pick { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.rol-opt { position: relative; cursor: pointer; }
+.rol-opt input { position: absolute; opacity: 0; pointer-events: none; }
+.rol-opt > span { display: grid; grid-template-columns: auto 1fr; column-gap: 10px; align-items: center; padding: 12px; border-radius: 13px; border: 1.5px solid var(--line); background: var(--card); height: 100%; }
+.rol-opt > span svg { grid-row: span 2; width: 22px; height: 22px; color: var(--muted); }
+.rol-opt > span small { color: var(--muted); font-size: 11.5px; }
+.rol-opt input:checked + span { border-color: var(--orange); box-shadow: 0 0 0 3px var(--orange-soft); }
+.rol-opt input:checked + span svg { color: var(--orange); }
+.rol-opt input:disabled + span { opacity: .6; cursor: not-allowed; }
+.user-cell.sm { width: 210px; }
+.user-cell.sm .avatar { width: 32px; height: 32px; font-size: 11px; }
+
+/* Mi perfil: botón para cambiar la foto sobre el retrato */
+.profile-hero .access-photo .photo-edit { position: absolute; left: 8px; bottom: 8px; width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; background: linear-gradient(135deg, #0FA3A6, #1BC7C7); color: #fff; box-shadow: 0 8px 18px rgba(0, 0, 0, .25); cursor: pointer; border: 3px solid var(--card); transition: transform .15s; }
+.profile-hero .access-photo .photo-edit:hover { transform: scale(1.08); }
+.profile-hero .access-photo .photo-edit svg { width: 19px; height: 19px; }
+
+/* Bitácora */
+.mod-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px; background: var(--soft); border: 1px solid var(--line); font-size: 12px; font-weight: 700; white-space: nowrap; }
+.mod-chip svg { width: 14px; height: 14px; color: var(--orange); }
+.bit-head { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 16px; align-items: center; padding: 16px; border-radius: 16px; background: linear-gradient(135deg, var(--soft), transparent); border: 1px solid var(--line); margin-bottom: 16px; }
+.bit-who .user-cell { width: auto; }
+.bit-who .user-txt b { font-size: 16px; }
+.bit-meta { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.bit-meta > div { background: var(--card); border: 1px solid var(--line); border-radius: 11px; padding: 9px 11px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.bit-meta > div.wide { grid-column: 1 / -1; }
+.bit-meta small { color: var(--muted); font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; }
+.bit-meta b { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
+.bit-meta b svg, .bit-meta .pill svg { width: 14px; height: 14px; }
+.bit-meta .pill { display: inline-flex; align-items: center; gap: 4px; align-self: flex-start; }
+.bit-sec { display: flex; align-items: center; gap: 8px; margin: 6px 0 10px; font-size: 14px; }
+.bit-sec svg { width: 17px; height: 17px; color: var(--orange); }
+.bit-sec .count { background: var(--orange-soft); color: var(--orange); border-radius: 999px; padding: 1px 9px; font-size: 12px; }
+.table.bit-diff th[scope="row"] { font-weight: 700; color: var(--text); background: transparent; text-transform: none; letter-spacing: 0; font-size: 13px; white-space: normal; }
+.table.bit-diff td.old { color: var(--bad); text-decoration: line-through; text-decoration-color: rgba(224, 70, 78, .45); }
+.table.bit-diff td.new { color: var(--text); font-weight: 600; }
+.table.bit-diff td.arrow svg { width: 15px; height: 15px; color: var(--muted); }
+.table.bit-diff tr.chg td.new { color: var(--ok); }
+.table.bit-diff tr:not(.chg) td.old { text-decoration: none; color: var(--muted); }
+.table.bit-diff tr.tec th, .table.bit-diff tr.tec td { opacity: .55; font-size: 12px; }
+.table.bit-diff .nulo { color: var(--muted); }
+.table.bit-diff code { font-size: 11px; overflow-wrap: anywhere; }
+.bit-more { margin-top: 14px; }
+.bit-more summary { cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-weight: 700; color: var(--turq-strong); }
+.bit-more summary svg { width: 15px; height: 15px; }
+
+@media (max-width: 760px) {
+  .user-form-top { grid-template-columns: minmax(0, 1fr); }
+  .user-form-top .photo-pick { position: static; }
+  .rol-pick, .bit-head, .bit-meta { grid-template-columns: minmax(0, 1fr); }
+  .type-chip { min-width: 180px; }
+}
+
+.no-cap .cs-val::first-letter, .cs-panel.no-cap .cs-opt > span::first-letter { text-transform: none; }
+input[name="codigo_calbas"]::placeholder { text-transform: none; }

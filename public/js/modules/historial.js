@@ -8,10 +8,16 @@ import {
   sb, state, esc, icon, toast, openModal, confirmDialog, must, DataTable, paged, sanitizeSearch, debounce,
   fmtDate, fmtDateTime, fmtVal, fmtSigned, dictamenPill, getTipos, getDepartamentos, CLASES, CRITERIOS,
   toCSV, descargar, todayISO, addDays, makeChart, PALETTE, cssVar, errMsg, refreshIcons,
-  U, convertirMasa, ACCIONES, segPill,
+  U, convertirMasa, ACCIONES, segPill, avatarHTML, fotoDe,
 } from '../core.js';
 
-let root, table;
+let root, table, perfiles = {};
+// Persona que registró la verificación (foto, nombre y correo)
+function registro(v) {
+  const p = perfiles[v.supervisor_id_calbas];
+  const nombre = p?.nombre_completo_calbas || v.supervisor_calbas || '—';
+  return `<div class="user-cell sm">${avatarHTML(nombre, p ? fotoDe(p.correo_calbas, p.avatar_url_calbas) : '')}<div class="user-txt"><b>${esc(nombre)}</b></div></div>`;
+}
 const VW = 'vw_verificaciones_todas_calbas';
 
 // En básculas el promedio se guarda en la unidad de la báscula; se muestra en la unidad de la pesa patrón
@@ -57,7 +63,8 @@ const estadoSeg = (v) => (v.dictamen_calbas !== 'NO_CUMPLE' || v.estado_calbas !
 export default {
   async render(el, params = {}) {
     root = el;
-    const [tipos, deptos] = await Promise.all([getTipos(), getDepartamentos()]);
+    const [tipos, deptos, { data: pf }] = await Promise.all([getTipos(), getDepartamentos(), sb.from('perfiles_calbas').select('id_calbas, nombre_completo_calbas, correo_calbas, avatar_url_calbas')]);
+    perfiles = Object.fromEntries((pf || []).map((p) => [p.id_calbas, p]));
     el.innerHTML = `
       <section class="page-intro">
         <div><span class="eyebrow">Registros</span><h1>Historial de verificaciones</h1>
@@ -82,7 +89,8 @@ export default {
     table = new DataTable(el.querySelector('#h-table'), {
       rowKey: 'id_calbas', sort: { key: 'fecha_calbas', asc: false },
       columns: [
-        { label: 'Fecha', sort: 'fecha_calbas', render: (v) => `<b class="cell-main">${fmtDate(v.fecha_calbas)}</b><span class="cell-sub">${esc(v.supervisor_calbas || '')}</span>` },
+        { label: 'Fecha', sort: 'fecha_calbas', render: (v) => `<b class="cell-main">${fmtDate(v.fecha_calbas)}</b><span class="cell-sub">${fmtDateTime(v.created_at_calbas).slice(-5)} h</span>` },
+        { label: 'Registró', cls: 'col-user', render: (v) => registro(v) },
         { label: 'Equipo', sort: 'equipo_codigo_calbas', render: (v) => `<b class="cell-main">${esc(v.equipo_codigo_calbas)}</b><span class="cell-sub">${esc(v.tipo_nombre_calbas)} · ${esc(v.departamento_calbas || '')}</span>` },
         { label: 'Patrón', render: (v) => `<span class="mono">${fmtVal(v.valor_referencia_calbas)} ${esc(U(v.unidad_referencia_calbas))}</span><span class="cell-sub">${esc(v.patron_codigo_calbas || '')}</span>` },
         { label: 'Promedio', render: (v) => `<span class="mono">${fmtVal(enRef(v, v.promedio_lecturas_calbas))} ${esc(uLect(v))}</span>` },

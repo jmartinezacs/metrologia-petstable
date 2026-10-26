@@ -569,6 +569,8 @@ function mejorarSelect(sel) {
   if (sel.style.cssText) { wrap.style.cssText = sel.style.cssText; sel.style.cssText = ''; }
   sel.parentNode.insertBefore(wrap, sel);
   wrap.appendChild(sel);
+  // Unidades (g, µL, °C…): sin mayúscula inicial automática
+  if ('unidad' in sel.dataset) wrap.classList.add('no-cap');
   sel.classList.add('cs-native'); sel.tabIndex = -1; sel.setAttribute('aria-hidden', 'true');
   const btn = document.createElement('button');
   btn.type = 'button'; btn.className = 'cs-btn';
@@ -596,6 +598,7 @@ function mejorarSelect(sel) {
       sel.dispatchEvent(new Event('input', { bubbles: true }));
       sel.dispatchEvent(new Event('change', { bubbles: true }));
     });
+    if (wrap.classList.contains('no-cap')) csAbierto?.panel.classList.add('no-cap');
   });
   btn.addEventListener('keydown', (e) => {
     if (!csAbierto && ['ArrowDown', 'ArrowUp', 'Enter', ' '].includes(e.key)) { e.preventDefault(); btn.click(); }
