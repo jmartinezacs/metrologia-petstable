@@ -28,7 +28,7 @@ Guía para Claude Code al trabajar en este repositorio.
 - **Vistas unificadas** (`security_invoker`): `vw_equipos_calbas` (inventario con estados), `vw_verificaciones_todas_calbas` y `vw_calibraciones_todas_calbas`. Cada una une básculas y equipos genéricos por medio de `origen_calbas` (`bascula` o `equipo`).
 - **RLS:** usuario activo con departamento asignado para ver y verificar; administrador para todo lo demás. Funciones auxiliares: `calbas_private.activo_calbas()`, `es_admin_calbas()`, `es_usuario_calbas()` y `tiene_departamento_calbas()`.
 - **Storage:** `certificados_calbas` (privado; se lee con URL firmada; solo administradores suben). `calbas-avatars/<uid>/…` guarda la foto propia. `avatares` contiene las fotos históricas (solo lectura).
-- **Usuarios:** la Edge Function `gestionar_usuarios_calbas_admin` (v2). No modifiques `gestionar_usuarios_auditoria_v4`, que pertenece a otro sistema.
+- **Usuarios:** la Edge Function `gestionar_usuarios_calbas_admin` (v3, fuente en `supabase/functions/`). Nunca bloquea la cuenta de Auth (compartida con otras apps): «inactivo» solo cambia `perfiles_calbas.activo_calbas`. Las cuentas que ya existen se agregan con `calbas_agregar_cuenta`. No modifiques `gestionar_usuarios_auditoria_v4`, que pertenece a otro sistema.
 - **Pruebas SQL:** `tests/sql/pruebas_equipos_v7.sql` es un bloque `DO` que simula un JWT y termina con `RAISE EXCEPTION` (se revierte). Ejecútalo con `execute_sql`. Ten en cuenta que las secuencias no se revierten: después, reinicia `calbas_private.seq_patrones_calbas` si `patrones_calbas` está vacía.
 
 ## Pruebas de interfaz sin credenciales
@@ -38,6 +38,4 @@ Sirve una build `-Prueba` con `tools\serve.ps1 -Root <carpeta>`. Luego sustituye
 ## Pendientes conocidos (no resueltos en v7.0)
 
 - `alerta_inmediata_calbas` usa columnas antiguas (`desviacion_pct_calbas`, `tolerancia_pct_aplicada_calbas`). El frontend la invoca tras un «no cumple» de báscula, pero el correo probablemente falla.
-- `gestionar_usuarios_calbas_admin` al desactivar un usuario lo bloquea (ban) en Supabase Auth: le quita acceso a TODAS las apps de Pet's Table. Las cuentas existentes se agregan con `calbas_agregar_cuenta` (no toca Auth).
-- `gestionar_usuarios_calbas_admin` escribe `activo`/`inactivo` en `invitaciones_calbas.estado_calbas`, cuyo CHECK no lo permite. Solo genera una advertencia.
 - No hay alertas por correo para equipos genéricos ni hay un cron de resumen diario.

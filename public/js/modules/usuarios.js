@@ -140,7 +140,7 @@ async function formUsuario(u = null) {
           <div id="us-acceso" class="full form-grid" style="padding:0">
             ${seccion('key-round', 'Acceso')}
             <div class="field full"><label for="us-pw">${u ? 'Nueva contraseña (opcional)' : 'Contraseña inicial'} ${u ? '' : '<span class="req">*</span>'}</label><input id="us-pw" name="password" type="password" minlength="8" maxlength="128" autocomplete="new-password" ${u ? '' : 'required'} placeholder="Mínimo 8 caracteres"></div>
-            ${u ? `<label class="switch-row full"><input type="checkbox" name="activo" ${u.activo_calbas === false ? '' : 'checked'} ${self ? 'disabled' : ''}><span><b>Usuario activo</b><small>Desactivarlo bloquea su cuenta de Pet's Table (también en las demás aplicaciones).</small></span></label>` : ''}
+            ${u ? `<label class="switch-row full"><input type="checkbox" name="activo" ${u.activo_calbas === false ? '' : 'checked'} ${self ? 'disabled' : ''}><span><b>Usuario activo</b><small>Desactivarlo solo le quita el acceso a Metrología; su cuenta sigue funcionando en las demás apps de Pet's Table.</small></span></label>` : ''}
           </div>
         </div>
       </div>`,
