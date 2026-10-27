@@ -155,7 +155,6 @@ async function abrirFicha(id) {
     : [['Método', METODOS[tipoFicha?.metodo_calbas]?.[0] || '—'], ['Magnitud', e.magnitud_calbas], ...(tipoFicha?.puntos_referencia_calbas ? [['Puntos de referencia', tipoFicha.puntos_referencia_calbas.map((x) => fmtVal(x)).join(' / ')]] : []), ['Rango', d.rango_max_calbas != null ? `${fmtVal(d.rango_min_calbas ?? 0)} – ${fmtVal(d.rango_max_calbas)} ${u}` : '—'],
        ['Resolución', d.resolucion_calbas ? `${fmtVal(d.resolucion_calbas)} ${u}` : '—'],
        ['Tolerancia', d.tolerancia_tipo_calbas === 'PORCENTAJE' ? `± ${fmtVal(d.tolerancia_calbas)} % de la referencia` : `± ${fmtVal(d.tolerancia_calbas)} ${u}`],
-       ['CV máximo', d.cv_max_pct_calbas ? `${fmtVal(d.cv_max_pct_calbas)} %` : 'No aplica'],
        ['Calibrar cada', `${d.frecuencia_calibracion_dias_calbas} días`]];
   const gen = [['Departamento', e.departamento_calbas], ['Ubicación', e.ubicacion_calbas], ['Marca', e.marca_calbas], ['Modelo', e.modelo_calbas],
     ['Número de serie', e.numero_serie_calbas], ['Verificar cada', e.frecuencia_verificacion_dias_calbas === 1 ? 'Diario' : `${e.frecuencia_verificacion_dias_calbas} días`]];
@@ -237,9 +236,16 @@ const num = (name, label, val, req = false, extra = '', ayuda = '', sufijo = '')
 const seccion = (ico, titulo, sub = '') => `<div class="form-section full"><span class="fs-ico">${icon(ico)}</span><div><b>${esc(titulo)}</b>${sub ? `<small>${esc(sub)}</small>` : ''}</div></div>`;
 const banner = (tipo, editar, codigo) => `<div class="form-banner"><span class="eq-ico lg t-${esc(tipo.clave_calbas.toLowerCase())}">${icon(tipoIcono(tipo.clave_calbas, tipo.icono_calbas))}</span>
   <div><b>${editar ? `Editando ${esc(codigo)}` : `Alta de equipo: ${esc(tipo.nombre_calbas)}`}</b><span>${esc(tipo.magnitud_calbas)} · unidades ${esc(tipo.unidades_calbas.map(U).join(', '))}</span></div></div>`;
-const comunes = (d, deptos, ejemplo) => `
+// Próximo código automático (vista previa; la base de datos asigna el definitivo)
+function siguienteCodigo(pref) {
+  const re = new RegExp(`^${pref}-(\\d+)$`);
+  const nums = todos.map((e) => re.exec(e.codigo_calbas)?.[1]).filter(Boolean).map(Number);
+  return `${pref}-${String((nums.length ? Math.max(...nums) : 0) + 1).padStart(2, '0')}`;
+}
+const comunes = (d, deptos, ejemplo, auto = null) => `
   ${seccion('id-card', 'Identificación', 'Código único con el que se etiqueta físicamente el equipo.')}
-  ${fld('codigo_calbas', 'Código', d.codigo_calbas, `maxlength="40" autocomplete="off" placeholder="${ejemplo}" style="text-transform:uppercase"`, true)}
+  ${auto ? `<div class="field"><label for="f-codigo_calbas">Código</label><div class="input-suffix"><input id="f-codigo_calbas" name="codigo_calbas" value="${esc(d.id_calbas ? d.codigo_calbas : '')}" readonly placeholder="${esc(auto)}" class="auto-code"><span class="sfx">${d.id_calbas ? 'fijo' : 'auto'}</span></div><small class="hint">${d.id_calbas ? 'El código no cambia después del alta.' : `Se asigna automáticamente al guardar (será ${esc(auto)}).`}</small></div>`
+    : fld('codigo_calbas', 'Código', d.codigo_calbas, `maxlength="40" autocomplete="off" placeholder="${ejemplo}" style="text-transform:uppercase"`, true)}
   ${fld('marca_calbas', 'Marca', d.marca_calbas, 'maxlength="80"')}
   ${fld('modelo_calbas', 'Modelo', d.modelo_calbas, 'maxlength="80"')}
   ${fld('numero_serie_calbas', 'Número de serie', d.numero_serie_calbas, 'maxlength="80"')}
@@ -300,17 +306,16 @@ async function formGenerico(d, tipo, deptos) {
   return openModal({
     title: editar ? `Editar ${tipo.nombre_calbas.toLowerCase()} ${d.codigo_calbas}` : `Nuevo ${tipo.nombre_calbas.toLowerCase()}`,
     subtitle: tipo.guia_calbas || '', size: 'lg',
-    body: `${banner(tipo, editar, d.codigo_calbas)}<div class="form-grid pro-form">${comunes({ codigo_calbas: editar ? d.codigo_calbas : `${tipo.prefijo_codigo_calbas}-`, ...d }, deptos, `Ej. ${tipo.prefijo_codigo_calbas}-001`)}
+    body: `${banner(tipo, editar, d.codigo_calbas)}<div class="form-grid pro-form">${comunes(d, deptos, '', siguienteCodigo(tipo.prefijo_codigo_calbas))}
       ${fld('descripcion_calbas', 'Descripción', d.descripcion_calbas, 'maxlength="140" placeholder="Ej. Termómetro de punzón para cámara fría"')}
       ${seccion('ruler', 'Características de medición')}
       <div class="field"><label for="f-unidad">Unidad <span class="req">*</span></label><select id="f-unidad" name="unidad_calbas" required data-unidad>${tipo.unidades_calbas.map((u) => `<option value="${esc(u)}" ${d.unidad_calbas === u ? 'selected' : ''}>${esc(U(u))}</option>`).join('')}</select></div>
-      ${num('resolucion_calbas', 'Resolución', d.resolucion_calbas, false, 'min="0"', 'Lo que avanza el último dígito.', tipo.unidades_calbas[0])}
+      ${num('resolucion_calbas', 'Resolución', d.resolucion_calbas, false, 'min="0" placeholder="Ej. 0.1"', 'El valor más pequeño que el equipo puede mostrar (su último dígito). Si marca 4.5 °C es 0.1; si marca 7.01 pH es 0.01.', tipo.unidades_calbas[0])}
       ${num('rango_min_calbas', 'Rango mínimo', d.rango_min_calbas, false, '', '', tipo.unidades_calbas[0])}
       ${num('rango_max_calbas', 'Rango máximo', d.rango_max_calbas, false, '', '', tipo.unidades_calbas[0])}
       ${seccion('target', 'Criterio de aceptación', 'Debe provenir del procedimiento interno, la norma o el fabricante; el valor sugerido es solo un punto de partida.')}
       <div class="field"><label for="f-toltipo">Tipo de tolerancia</label><select id="f-toltipo" name="tolerancia_tipo_calbas"><option value="ABSOLUTA" ${tolTipo === 'ABSOLUTA' ? 'selected' : ''}>Absoluta (± en la unidad del equipo)</option><option value="PORCENTAJE" ${tolTipo === 'PORCENTAJE' ? 'selected' : ''}>Porcentaje del valor de referencia</option></select></div>
       ${num('tolerancia_calbas', 'Tolerancia (±)', d.tolerancia_calbas ?? tipo.tolerancia_sugerida_calbas, true, 'min="0"', 'Error máximo aceptado contra el patrón.')}
-      ${num('cv_max_pct_calbas', 'CV máximo (repetibilidad)', d.cv_max_pct_calbas, false, 'min="0"', 'Opcional. Útil en micropipetas.', '%')}
       ${seccion('calendar-check', 'Programa')}
       ${num('frecuencia_verificacion_dias_calbas', 'Verificar cada', d.frecuencia_verificacion_dias_calbas ?? 30, true, 'min="1" step="1"', 'Verificación interna contra patrón.', 'días')}
       ${num('frecuencia_calibracion_dias_calbas', 'Calibrar cada', d.frecuencia_calibracion_dias_calbas ?? 365, true, 'min="1" step="1"', 'Calibración externa acreditada.', 'días')}
@@ -328,16 +333,16 @@ async function formGenerico(d, tipo, deptos) {
       })) return false;
       const v = formValues(form);
       const row = {
-        tipo_id_calbas: tipo.id_calbas, codigo_calbas: v.codigo_calbas.toUpperCase(), departamento_id_calbas: v.departamento_id_calbas,
+        tipo_id_calbas: tipo.id_calbas, departamento_id_calbas: v.departamento_id_calbas,
         descripcion_calbas: nullIfEmpty(v.descripcion_calbas), ubicacion_calbas: nullIfEmpty(v.ubicacion_calbas), marca_calbas: nullIfEmpty(v.marca_calbas),
         modelo_calbas: nullIfEmpty(v.modelo_calbas), numero_serie_calbas: nullIfEmpty(v.numero_serie_calbas), unidad_calbas: v.unidad_calbas,
         rango_min_calbas: n(v.rango_min_calbas), rango_max_calbas: n(v.rango_max_calbas), resolucion_calbas: n(v.resolucion_calbas),
-        tolerancia_calbas: n(v.tolerancia_calbas), tolerancia_tipo_calbas: v.tolerancia_tipo_calbas, cv_max_pct_calbas: n(v.cv_max_pct_calbas),
+        tolerancia_calbas: n(v.tolerancia_calbas), tolerancia_tipo_calbas: v.tolerancia_tipo_calbas,
         frecuencia_verificacion_dias_calbas: n(v.frecuencia_verificacion_dias_calbas), frecuencia_calibracion_dias_calbas: n(v.frecuencia_calibracion_dias_calbas),
         activo_calbas: form.elements.activo.checked,
       };
       if (editar) must(await sb.from('equipos_calbas').update(row).eq('id_calbas', d.id_calbas));
-      else must(await sb.from('equipos_calbas').insert(row));
+      else { const { data } = must(await sb.from('equipos_calbas').insert({ ...row, codigo_calbas: '' }).select('codigo_calbas').single()); toast(`Equipo registrado con el código ${data.codigo_calbas}.`, 'success'); return true; }
       toast(editar ? 'Equipo actualizado.' : 'Equipo registrado.', 'success');
     },
   });

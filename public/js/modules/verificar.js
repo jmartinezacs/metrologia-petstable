@@ -42,7 +42,7 @@ export default {
     const grupos = {};
     equipos.forEach((e) => (grupos[e.tipo_nombre_calbas] ||= []).push(e));
     sel.innerHTML = '<option value="">Selecciona un equipo…</option>' + Object.entries(grupos).map(([g, list]) => `<optgroup label="${esc(g)}">${list.map((e) =>
-      `<option value="${e.id_calbas}">${esc(e.codigo_calbas)} · ${esc(e.ubicacion_calbas || e.departamento_calbas || '')}</option>`).join('')}</optgroup>`).join('');
+      `<option value="${e.id_calbas}">${esc(e.tipo_nombre_calbas.replace(/ \(pH\)$/, ''))} · ${esc(e.codigo_calbas)} · ${esc(e.ubicacion_calbas || e.departamento_calbas || '')}</option>`).join('')}</optgroup>`).join('');
     sel.addEventListener('change', () => elegir(sel.value));
     el.querySelector('#vf').addEventListener('submit', guardar);
     el.querySelector('#vf').addEventListener('input', (e) => { if (e.target.name !== 'equipo') preview(); });
