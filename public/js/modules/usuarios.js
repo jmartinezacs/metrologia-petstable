@@ -56,7 +56,7 @@ function pintar() {
     ${list.map((x) => `<tr>
       <td data-label="Usuario"><div class="user-cell">${avatarHTML(x.nombre_completo_calbas, fotoDe(x.correo_calbas, x.avatar_url_calbas))}<div class="user-txt"><b>${esc(x.nombre_completo_calbas)}</b><span>${esc(x.correo_calbas)}</span></div></div></td>
       <td data-label="Rol">${x.rol_calbas === 'admin' ? pill('Administrador', 'warn') : pill('Usuario', 'gray')}</td>
-      <td data-label="Departamento">${esc(x.departamento_calbas || '—')}</td><td data-label="Puesto">${esc(x.puesto_calbas || '—')}</td>
+      <td data-label="Departamento">${esc(x.departamento_calbas || '—')}${x.verifica_todas_calbas && x.rol_calbas !== 'admin' ? '<span class="cell-sub">Verifica todas las áreas</span>' : ''}</td><td data-label="Puesto">${esc(x.puesto_calbas || '—')}</td>
       <td data-label="Estatus">${x.activo_calbas ? pill('Activo', 'ok') : pill('Inactivo', 'bad')}</td>
       ${state.isAdmin ? `<td class="actions"><button class="icon-btn" data-u="editar" data-id="${x.id_calbas}" title="Editar" aria-label="Editar">${icon('pencil')}</button></td>` : ''}</tr>`).join('')}
     </tbody></table></div>` : emptyState({ ico: 'search-x', title: 'Sin resultados', text: 'No hay usuarios que coincidan con la búsqueda.' });
@@ -137,6 +137,7 @@ async function formUsuario(u = null) {
               <label class="rol-opt"><input type="radio" name="rol" value="usuario" ${u?.rol_calbas !== 'admin' ? 'checked' : ''} ${self ? 'disabled' : ''}><span>${icon('user')}<b>Usuario</b><small>Verifica y consulta los equipos de su departamento</small></span></label>
               <label class="rol-opt"><input type="radio" name="rol" value="admin" ${u?.rol_calbas === 'admin' ? 'checked' : ''} ${self ? 'disabled' : ''}><span>${icon('crown')}<b>Administrador</b><small>Gestión completa de equipos, calibraciones y usuarios</small></span></label>
             </div></div>
+          <label class="switch-row full"><span><b>Verifica equipos de todas las áreas</b><small>Para Inspectores de calidad: ve y verifica los equipos de todos los departamentos sin ser administrador.</small></span><input type="checkbox" name="todas" ${u ? (u.verifica_todas_calbas ? 'checked' : '') : ''}></label>
           <div id="us-acceso" class="full form-grid" style="padding:0">
             ${seccion('key-round', 'Acceso')}
             <div class="field full"><label for="us-pw">${u ? 'Nueva contraseña (opcional)' : 'Contraseña inicial'} ${u ? '' : '<span class="req">*</span>'}</label><input id="us-pw" name="password" type="password" minlength="8" maxlength="128" autocomplete="new-password" ${u ? '' : 'required'} placeholder="Mínimo 8 caracteres"></div>
@@ -148,7 +149,11 @@ async function formUsuario(u = null) {
       const prev = form.querySelector('#us-prev');
       const nombre = () => form.elements.nombre.value || '?';
       const sel = form.querySelector('#us-puesto');
-      sel.addEventListener('change', () => form.querySelector('#us-otro-f').classList.toggle('hidden', sel.value !== '__otro'));
+      sel.addEventListener('change', () => {
+        form.querySelector('#us-otro-f').classList.toggle('hidden', sel.value !== '__otro');
+        // Los Inspectores de calidad verifican los equipos de todas las áreas
+        if (sel.value === 'Inspector de calidad') form.elements.todas.checked = true;
+      });
       form.querySelector('#us-foto').addEventListener('change', async (e) => {
         const f = e.target.files[0];
         if (!f) return;
@@ -207,6 +212,7 @@ async function formUsuario(u = null) {
       if (cuenta) {
         const url = fotoBlob ? await subirFotoDe(cuenta.id, fotoBlob) : fotoUrl;
         must(await sb.rpc('calbas_agregar_cuenta', { p_id: cuenta.id, p_nombre: f.nombre.value.trim(), p_puesto: puestoFinal || null, p_rol: rol, p_departamento: f.departamento.value, p_avatar: url || null }));
+        must(await sb.from('perfiles_calbas').update({ verifica_todas_calbas: f.todas.checked }).eq('id_calbas', cuenta.id));
         toast(`${cuenta.nombre} ya tiene acceso a Metrología.`, 'success');
         return true;
       }
@@ -227,7 +233,7 @@ async function formUsuario(u = null) {
       // En edición la foto se guarda directo en el perfil (subida o elegida de las existentes)
       const uid = data.user_id || u?.id_calbas;
       const nueva = u && fotoBlob ? await subirFotoDe(uid, fotoBlob) : fotoUrl;
-      if (nueva) must(await sb.from('perfiles_calbas').update({ avatar_url_calbas: nueva }).eq('id_calbas', uid));
+      must(await sb.from('perfiles_calbas').update({ verifica_todas_calbas: f.todas.checked, ...(nueva ? { avatar_url_calbas: nueva } : {}) }).eq('id_calbas', uid));
       toast(u ? 'Usuario actualizado.' : 'Usuario creado.', 'success');
       return true;
     },

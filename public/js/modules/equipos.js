@@ -109,10 +109,13 @@ function pintarTipos() {
   activos.forEach((e) => { if (e.estado_calibracion_calbas === 'vencida' || e.ultimo_dictamen_calbas === 'NO_CUMPLE') grupos[e.tipo_clave_calbas].alerta++; });
   const sel = root.querySelector('#eq-tipo').value;
   const alertasTot = Object.values(grupos).reduce((s, g) => s + g.alerta, 0);
-  const chip = (k, ico, cls, n, nombre, alerta) => `<button class="type-chip ${sel === k ? 'on' : ''}" data-tipo="${esc(k)}">
-      <span class="tc-ico ${cls}">${icon(ico)}</span>
-      <span class="tc-txt"><small>${esc(nombre)}</small><b>${n}</b></span>
-      ${alerta ? `<span class="tc-alert" title="Calibración vencida o último dictamen no cumple">${icon('triangle-alert')} ${alerta} con alerta</span>` : '<span class="tc-ok">Sin alertas</span>'}</button>`;
+  // Tarjeta de filtro por tipo: ícono, nombre, total y estado (alertas o al día)
+  const chip = (k, ico, cls, n, nombre, alerta) => `<button class="type-card ${sel === k ? 'on' : ''}" data-tipo="${esc(k)}" aria-pressed="${sel === k}">
+      <span class="tk-ico ${cls}">${icon(ico)}</span>
+      <span class="tk-body"><span class="tk-name">${esc(nombre)}</span>
+        <span class="tk-meta"><b>${n}</b> ${n === 1 ? 'equipo' : 'equipos'}</span>
+        ${alerta ? `<span class="tk-state bad" title="Calibración vencida o último dictamen no cumple">${icon('triangle-alert')} ${alerta} con alerta</span>` : `<span class="tk-state ok">${icon('circle-check')} Al día</span>`}</span>
+      <span class="tk-check">${icon('check')}</span></button>`;
   strip.innerHTML = chip('', 'layers', '', activos.length, 'Todos los equipos', alertasTot)
     + Object.entries(grupos).map(([k, g]) => chip(k, g.ico, `t-${k.toLowerCase()}`, g.n, g.nombre === 'Báscula' ? 'Básculas' : g.nombre, g.alerta)).join('');
   refreshIcons();
@@ -121,7 +124,7 @@ function pintarTipos() {
 async function onClick(e) {
   const t = e.target;
   const chip = t.closest('[data-tipo]');
-  if (chip && chip.classList.contains('type-chip')) {
+  if (chip && chip.classList.contains('type-card')) {
     root.querySelector('#eq-tipo').value = chip.dataset.tipo;
     root.querySelector('#eq-tipo').dispatchEvent(new Event('change'));
     pintarTipos(); return;

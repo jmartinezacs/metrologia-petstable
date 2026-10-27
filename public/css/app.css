@@ -1456,3 +1456,36 @@ input[name="codigo_calbas"]::placeholder { text-transform: none; }
   .pt-row > span:last-child { grid-column: 1 / -1; }
   .pt-row.pt-head > span:last-child { display: none; }
 }
+
+/* =====================================================================
+   v7.5 · Tarjetas de filtro por tipo de equipo
+   ===================================================================== */
+.type-strip { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; overflow: visible; padding: 2px 0 16px; }
+.type-card { position: relative; display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: 16px;
+  border: 1px solid var(--line); background: var(--card); color: var(--text); text-align: left; font: inherit; cursor: pointer;
+  box-shadow: 0 1px 2px rgba(15, 35, 50, .04); transition: border-color .15s, box-shadow .15s, transform .15s; }
+.type-card:hover { border-color: var(--input-line); box-shadow: var(--shadow); transform: translateY(-1px); }
+.type-card:focus-visible { outline: 2px solid var(--turq); outline-offset: 2px; }
+.type-card.on { border-color: var(--orange); box-shadow: 0 0 0 3px var(--orange-soft), var(--shadow); }
+.type-card::before { content: ""; position: absolute; left: 0; top: 14px; bottom: 14px; width: 3px; border-radius: 0 3px 3px 0; background: transparent; transition: background .15s; }
+.type-card.on::before { background: var(--orange); }
+.tk-ico { width: 46px; height: 46px; border-radius: 13px; display: grid; place-items: center; flex: 0 0 auto; background: var(--orange-soft); color: var(--orange); }
+.tk-ico:not([class*="t-"]) { background: linear-gradient(135deg, var(--navy), var(--navy-2)); color: #fff; }
+.tk-ico svg { width: 22px; height: 22px; }
+.tk-body { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
+.tk-name { font-size: 14px; font-weight: 800; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tk-meta { color: var(--muted); font-size: 12.5px; }
+.tk-meta b { color: var(--text); font-size: 15px; font-weight: 900; }
+.tk-state { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 700; }
+.tk-state svg { width: 13px; height: 13px; }
+.tk-state.bad { color: var(--bad); }
+.tk-state.ok { color: var(--ok); }
+.tk-check { position: absolute; top: 10px; right: 10px; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--orange); color: #fff; opacity: 0; transform: scale(.6); transition: opacity .15s, transform .15s; }
+.tk-check svg { width: 12px; height: 12px; }
+.type-card.on .tk-check { opacity: 1; transform: scale(1); }
+@media (max-width: 560px) {
+  .type-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .type-card { padding: 10px 12px; gap: 10px; }
+  .tk-ico { width: 38px; height: 38px; border-radius: 11px; }
+}
