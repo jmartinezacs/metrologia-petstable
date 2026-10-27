@@ -101,3 +101,36 @@ begin
   exception when others then o := o || '[4] OK cerrado inmutable'||E'\n'; end;
   raise exception E'REPORTE (revertido)\n%', o;
 end $$;
+
+-- v7.3 · Métodos por tipo (MULTIPUNTO / PUNTO_UNICO / SOLO_CALIBRACION) y ajuste.
+-- Después de ejecutarlo: select setval('calbas_private.seq_patrones_calbas', 1, false) si patrones_calbas está vacía.
+do $$
+declare
+  admin uuid := (select id_calbas from perfiles_calbas where rol_calbas='admin' and activo_calbas limit 1);
+  dep uuid := (select id_calbas from departamentos_calbas order by nombre_calbas limit 1);
+  tp uuid := (select id_calbas from tipos_equipo_calbas where clave_calbas='POTENCIOMETRO');
+  tt uuid := (select id_calbas from tipos_equipo_calbas where clave_calbas='TERMOMETRO');
+  tm uuid := (select id_calbas from tipos_equipo_calbas where clave_calbas='MICROPIPETA');
+  pot uuid; ter uuid; mic uuid; pb uuid; pt uuid; pm uuid; v uuid; r record; o text := '';
+begin
+  perform set_config('request.jwt.claims', json_build_object('sub', admin, 'role','authenticated')::text, true);
+  set local role authenticated;
+  insert into equipos_calbas(tipo_id_calbas, codigo_calbas, departamento_id_calbas, unidad_calbas, tolerancia_calbas) values (tp,'POT-T',dep,'pH',0.05) returning id_calbas into pot;
+  insert into equipos_calbas(tipo_id_calbas, codigo_calbas, departamento_id_calbas, unidad_calbas, tolerancia_calbas) values (tt,'TER-T',dep,'°C',0.5) returning id_calbas into ter;
+  insert into equipos_calbas(tipo_id_calbas, codigo_calbas, departamento_id_calbas, unidad_calbas, tolerancia_calbas, tolerancia_tipo_calbas) values (tm,'MIC-T',dep,'µL',1,'PORCENTAJE') returning id_calbas into mic;
+  insert into patrones_calbas(codigo_calbas,tipo_id_calbas,descripcion_calbas,unidad_calbas) values ('',tp,'Buffers','pH') returning id_calbas into pb;
+  insert into patrones_calbas(codigo_calbas,tipo_id_calbas,descripcion_calbas,unidad_calbas) values ('',tt,'Punto de hielo','°C') returning id_calbas into pt;
+  insert into patrones_calbas(codigo_calbas,tipo_id_calbas,descripcion_calbas,unidad_calbas) values ('',tm,'Balanza','µL') returning id_calbas into pm;
+  insert into verificaciones_equipo_calbas(equipo_id_calbas,departamento_id_calbas,patron_id_calbas,valor_referencia_calbas,lectura_1_calbas,lectura_2_calbas,lectura_3_calbas,ajuste_realizado_calbas,lecturas_post_calbas)
+  values (pot,dep,pb,4.01,4.01,4.01,10.01,true,array[4.01,7.01,10.01]) returning id_calbas into v;
+  select * into r from verificaciones_equipo_calbas where id_calbas=v;
+  o := o || format('[1] dict=%s final=%s (esperado NO_CUMPLE / CUMPLE)', r.dictamen_calbas, r.dictamen_final_calbas) || E'\n';
+  insert into verificaciones_equipo_calbas(equipo_id_calbas,departamento_id_calbas,patron_id_calbas,valor_referencia_calbas,lectura_1_calbas,ajuste_realizado_calbas,correccion_calbas,lecturas_post_calbas)
+  values (ter,dep,pt,0,0.8,true,-0.8,array[0]) returning id_calbas into v;
+  select * into r from verificaciones_equipo_calbas where id_calbas=v;
+  o := o || format('[2] termómetro err=%s final=%s desv_final=%s', r.error_calbas, r.dictamen_final_calbas, r.desviacion_final_calbas) || E'\n';
+  begin insert into verificaciones_equipo_calbas(equipo_id_calbas,departamento_id_calbas,patron_id_calbas,valor_referencia_calbas,lectura_1_calbas) values (mic,dep,pm,100,100);
+    o := o || '[3] FALLA aceptó micropipeta'||E'\n';
+  exception when others then o := o || '[3] OK micropipeta rechazada'||E'\n'; end;
+  raise exception E'REPORTE (revertido)\n%', o;
+end $$;

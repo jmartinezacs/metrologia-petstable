@@ -757,7 +757,7 @@ export const ESTADO_CAL = {
   vigente: ['Vigente', 'ok'], por_vencer: ['Por vencer', 'warn'], vencida: ['Vencida', 'bad'], sin_registro: ['Sin registro', 'gray'],
 };
 export const ESTADO_VER = {
-  al_dia: ['Al día', 'ok'], por_vencer: ['Próxima', 'warn'], vencida: ['Atrasada', 'bad'], sin_registro: ['Sin verificar', 'gray'],
+  al_dia: ['Al día', 'ok'], por_vencer: ['Próxima', 'warn'], vencida: ['Atrasada', 'bad'], sin_registro: ['Sin verificar', 'gray'], no_aplica: ['Solo calibración', 'info'],
 };
 export const RESULTADO_CAL = { vigente: ['Conforme', 'ok'], no_conforme: ['No conforme', 'bad'], cancelada: ['Cancelada', 'gray'] };
 export const calPill = (e) => pill(...(ESTADO_CAL[e] || [e || '—', 'gray']));
@@ -810,3 +810,14 @@ export function estadistica(lecturas) {
 }
 
 export function navigate(hash) { if (location.hash !== hash) location.hash = hash; else window.dispatchEvent(new HashChangeEvent('hashchange')); }
+
+// Dictamen con el resultado después del ajuste o corrección (equipos genéricos)
+export function dictamenConAjuste(v) {
+  if (v.estado_calbas === 'anulada' || !v.ajuste_realizado_calbas || !v.dictamen_final_calbas) return dictamenPill(v.dictamen_calbas, v.estado_calbas);
+  return `${dictamenPill(v.dictamen_calbas, v.estado_calbas)}<span class="cell-sub">${v.dictamen_final_calbas === 'CUMPLE' ? '✓ Cumple tras ajuste' : '✗ No cumple tras ajuste'}</span>`;
+}
+export const METODOS = {
+  PUNTO_UNICO: ['Un punto con corrección', 'Patrón vs lectura del equipo; si hay desviación se registra la corrección y la lectura final (termómetros).'],
+  MULTIPUNTO: ['Varios puntos (buffers)', 'Una lectura por punto de referencia y, si hay ajuste, las lecturas después del ajuste (potenciómetros).'],
+  SOLO_CALIBRACION: ['Solo calibración', 'Sin verificación interna; únicamente calibraciones externas (micropipetas).'],
+};

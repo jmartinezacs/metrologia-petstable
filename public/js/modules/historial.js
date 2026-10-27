@@ -8,7 +8,7 @@ import {
   sb, state, esc, icon, toast, openModal, confirmDialog, must, DataTable, paged, sanitizeSearch, debounce,
   fmtDate, fmtDateTime, fmtVal, fmtSigned, dictamenPill, getTipos, getDepartamentos, CLASES, CRITERIOS,
   toCSV, descargar, todayISO, addDays, makeChart, PALETTE, cssVar, errMsg, refreshIcons,
-  U, convertirMasa, ACCIONES, segPill, avatarHTML, fotoDe,
+  U, convertirMasa, ACCIONES, segPill, avatarHTML, fotoDe, dictamenConAjuste, pill,
 } from '../core.js';
 
 let root, table, perfiles = {};
@@ -92,10 +92,10 @@ export default {
         { label: 'Fecha', sort: 'fecha_calbas', render: (v) => `<b class="cell-main">${fmtDate(v.fecha_calbas)}</b><span class="cell-sub">${fmtDateTime(v.created_at_calbas).slice(-5)} h</span>` },
         { label: 'Registró', cls: 'col-user', render: (v) => registro(v) },
         { label: 'Equipo', sort: 'equipo_codigo_calbas', render: (v) => `<b class="cell-main">${esc(v.equipo_codigo_calbas)}</b><span class="cell-sub">${esc(v.tipo_nombre_calbas)} · ${esc(v.departamento_calbas || '')}</span>` },
-        { label: 'Patrón', render: (v) => `<span class="mono">${fmtVal(v.valor_referencia_calbas)} ${esc(U(v.unidad_referencia_calbas))}</span><span class="cell-sub">${esc(v.patron_codigo_calbas || '')}</span>` },
-        { label: 'Promedio', render: (v) => `<span class="mono">${fmtVal(enRef(v, v.promedio_lecturas_calbas))} ${esc(uLect(v))}</span>` },
+        { label: 'Patrón', render: (v) => `<span class="mono">${v.referencias_calbas ? v.referencias_calbas.map((x) => fmtVal(x)).join(" / ") : fmtVal(v.valor_referencia_calbas)} ${esc(U(v.unidad_referencia_calbas))}</span><span class="cell-sub">${esc(v.patron_codigo_calbas || '')}</span>` },
+        { label: 'Lectura', render: (v) => `<span class="mono">${v.referencias_calbas ? [v.lectura_1_calbas, v.lectura_2_calbas, v.lectura_3_calbas].filter((x) => x != null).map((x) => fmtVal(x)).join(' / ') : fmtVal(enRef(v, v.promedio_lecturas_calbas))} ${esc(uLect(v))}</span>${v.ajuste_realizado_calbas ? '<span class="cell-sub">Con ajuste</span>' : ''}` },
         { label: 'Error / tolerancia', render: (v) => `<span class="mono">${fmtSigned(v.error_calbas)} ${esc(U(v.unidad_calculo_calbas))}</span><span class="cell-sub">± ${fmtVal(v.tolerancia_calbas, 4)} ${esc(U(v.unidad_calculo_calbas))}</span>` },
-        { label: 'Dictamen', sort: 'dictamen_calbas', render: (v) => dictamenPill(v.dictamen_calbas, v.estado_calbas) },
+        { label: 'Dictamen', sort: 'dictamen_calbas', render: (v) => dictamenConAjuste(v) },
         { label: 'Seguimiento', render: (v) => (estadoSeg(v) ? segPill(estadoSeg(v)) : '<span class="cell-sub">No aplica</span>') },
         { label: '', cls: 'actions', render: (v) => `<button class="icon-btn" data-det="${v.id_calbas}" title="Detalle" aria-label="Detalle">${icon(estadoSeg(v) && estadoSeg(v) !== 'cerrado' ? 'wrench' : 'eye')}</button>` },
       ],
@@ -145,6 +145,10 @@ async function exportar() {
       { label: 'Error', get: (r) => r.error_calbas }, { label: 'Tolerancia / EMT', get: (r) => r.tolerancia_calbas }, { label: 'Unidad de cálculo', get: (r) => U(r.unidad_calculo_calbas) },
       { label: 'CV %', get: (r) => r.cv_pct_calbas }, { label: 'Clase', get: (r) => CLASES[r.clase_exactitud_aplicada_calbas] || '' }, { label: 'Criterio', get: (r) => CRITERIOS[r.criterio_evaluacion_aplicado_calbas] || '' },
       { label: 'Dictamen', get: (r) => (r.dictamen_calbas === 'CUMPLE' ? 'Cumple' : 'No cumple') }, { label: 'Estado', get: (r) => r.estado_calbas },
+      { label: 'Puntos de referencia', get: (r) => (r.referencias_calbas || []).join(' / ') }, { label: 'Temperatura °C', get: (r) => r.temperatura_calbas },
+      { label: 'Ajuste / corrección', get: (r) => (r.ajuste_realizado_calbas ? 'Sí' : 'No') }, { label: 'Corrección aplicada', get: (r) => r.correccion_calbas },
+      { label: 'Lecturas después del ajuste', get: (r) => (r.lecturas_post_calbas || []).join(' / ') }, { label: 'Desviación final', get: (r) => r.desviacion_final_calbas },
+      { label: 'Dictamen final', get: (r) => (r.dictamen_final_calbas ? (r.dictamen_final_calbas === 'CUMPLE' ? 'Cumple' : 'No cumple') : '') },
       { label: 'Responsable', get: (r) => r.supervisor_calbas }, { label: 'Observaciones', get: (r) => r.observaciones_calbas }, { label: 'Motivo de anulación', get: (r) => r.motivo_anulacion_calbas },
     ]);
     descargar(`verificaciones_${todayISO()}.csv`, csv);
@@ -182,7 +186,7 @@ async function detalle(v) {
   const { data: serie } = await sb.from(VW).select('fecha_calbas, error_calbas, tolerancia_calbas, dictamen_calbas, created_at_calbas')
     .eq('equipo_id_calbas', v.equipo_id_calbas).eq('estado_calbas', 'vigente').order('fecha_calbas', { ascending: false }).order('created_at_calbas', { ascending: false }).limit(20);
   const tile = (k, x, cls = '') => `<div class="${cls}"><dt>${esc(k)}</dt><dd>${esc(x ?? '—')}</dd></div>`;
-  const lects = [v.lectura_1_calbas, v.lectura_2_calbas, v.lectura_3_calbas].map((x) => fmtVal(enRef(v, x))).join(' · ');
+  const lects = [v.lectura_1_calbas, v.lectura_2_calbas, v.lectura_3_calbas].filter((x) => x != null).map((x) => fmtVal(enRef(v, x))).join(' · ');
   let cambio = false;
   await openModal({
     title: `Verificación ${v.equipo_codigo_calbas}`, subtitle: `${fmtDate(v.fecha_calbas)} · ${v.tipo_nombre_calbas} · ${v.departamento_calbas || ''}`, size: 'lg',
@@ -199,6 +203,7 @@ async function detalle(v) {
         ${tile('Observaciones', v.observaciones_calbas, 'wide')}
         ${v.estado_calbas === 'anulada' ? tile('Motivo de anulación', v.motivo_anulacion_calbas, 'wide') : ''}
       </dl>
+      ${ajusteHTML(v)}
       ${seguimientoHTML(v)}
       ${serie?.length > 1 ? `<h4 class="section-label mt">Tendencia del error (últimas ${serie.length})</h4><div class="chart-box" style="height:220px"><canvas id="h-chart"></canvas></div>` : ''}
       ${state.isAdmin && v.estado_calbas !== 'anulada' ? `<div class="mt"><button type="button" class="btn danger sm" data-anular>${icon('ban')} Anular verificación</button></div>` : ''}`,
@@ -253,4 +258,29 @@ async function detalle(v) {
     },
   });
   return cambio;
+}
+
+// Puntos medidos (buffers) y ajuste / corrección: «como se encontró» y «como se dejó»
+function ajusteHTML(v) {
+  if (v.origen_calbas !== 'equipo') return '';
+  const u = U(v.unidad_calbas);
+  const tol = Number(v.tolerancia_calbas);
+  const est = (d) => (d == null ? '—' : Math.abs(d) <= tol + 1e-12 ? pill('Cumple', 'ok') : pill('Fuera', 'bad'));
+  if (v.referencias_calbas) {
+    const lect = [v.lectura_1_calbas, v.lectura_2_calbas, v.lectura_3_calbas];
+    const post = v.lecturas_post_calbas || [];
+    return `<section class="ficha-card mt"><h4>${icon('flask-conical')} Lecturas por buffer${v.temperatura_calbas != null ? ` <span class="cell-sub">· ${fmtVal(v.temperatura_calbas)} °C</span>` : ''}</h4>
+      <div class="table-wrap"><table class="table compact"><thead><tr><th>Buffer</th><th>Como se encontró</th><th>Desviación</th>${v.ajuste_realizado_calbas ? '<th>Después del ajuste</th><th>Desviación</th>' : ''}</tr></thead><tbody>
+      ${v.referencias_calbas.map((r, i) => {
+        const d = lect[i] == null ? null : lect[i] - r, dp = post[i] == null ? null : post[i] - r;
+        return `<tr><td class="mono"><b>${fmtVal(r)}</b></td><td class="mono">${fmtVal(lect[i])} ${esc(u)}</td><td>${d == null ? '—' : `<span class="mono">${fmtSigned(d, 4)}</span> ${est(d)}`}</td>
+          ${v.ajuste_realizado_calbas ? `<td class="mono">${fmtVal(post[i])} ${esc(u)}</td><td>${dp == null ? '—' : `<span class="mono">${fmtSigned(dp, 4)}</span> ${est(dp)}`}</td>` : ''}</tr>`;
+      }).join('')}</tbody></table></div></section>`;
+  }
+  if (!v.ajuste_realizado_calbas) return '';
+  return `<section class="ficha-card mt"><h4>${icon('wrench')} Corrección aplicada</h4><dl class="info-tiles">
+      <div><dt>Corrección</dt><dd>${v.correccion_calbas == null ? '—' : `${fmtSigned(v.correccion_calbas, 4)} ${esc(u)} (${Number(v.correccion_calbas) >= 0 ? 'se subió' : 'se bajó'})`}</dd></div>
+      <div><dt>Medición después de corregir</dt><dd>${fmtVal((v.lecturas_post_calbas || [])[0])} ${esc(u)}</dd></div>
+      <div><dt>Desviación final</dt><dd>${fmtSigned(v.desviacion_final_calbas, 4)} ${esc(u)}</dd></div>
+      <div><dt>Resultado final</dt><dd>${v.dictamen_final_calbas === 'CUMPLE' ? pill('Cumple', 'ok') : pill('No cumple', 'bad')}</dd></div></dl></section>`;
 }

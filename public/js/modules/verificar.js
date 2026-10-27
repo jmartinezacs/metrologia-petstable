@@ -1,7 +1,9 @@
 // =====================================================================
-// Registrar verificación. Un solo flujo para todos los equipos:
+// Registrar verificación según el método del tipo de equipo:
 //  · Básculas: pesa patrón + 3 lecturas → EMT según clase/criterio (OIML R76).
-//  · Otros equipos: patrón de referencia + 3 lecturas → error vs tolerancia y CV.
+//  · Potenciómetros (MULTIPUNTO): una lectura por buffer + ajuste opcional.
+//  · Termómetros (PUNTO_UNICO): patrón vs lectura, corrección y lectura final.
+//  · Micropipetas (SOLO_CALIBRACION): no se verifican.
 // La vista previa es orientativa: el dictamen definitivo lo calcula la base
 // de datos (validar_verificacion_calbas / validar_verificacion_equipo_calbas).
 // =====================================================================
@@ -19,7 +21,7 @@ export default {
     el.innerHTML = `
       <section class="page-intro">
         <div><span class="eyebrow">Control metrológico</span><h1>Registrar verificación</h1>
-          <p>Captura tres lecturas contra un patrón vigente; el promedio es la base del cálculo y el sistema emite el dictamen.</p></div>
+          <p>Registra la medición contra un patrón vigente. Si ajustas o corriges el equipo, se guarda cómo se encontró y cómo se dejó.</p></div>
       </section>
       <div class="verif-layout">
         <form class="card" id="vf" novalidate>
@@ -30,7 +32,8 @@ export default {
         </form>
         <aside class="card verif-preview" id="v-prev" aria-live="polite"></aside>
       </div>`;
-    equipos = (await cargarEquipos()).filter((e) => e.activo_calbas);
+    // Las micropipetas y otros equipos de solo calibración no se verifican
+    equipos = (await cargarEquipos()).filter((e) => e.activo_calbas && e.requiere_verificacion_calbas !== false);
     const sel = el.querySelector('#v-eq');
     if (!equipos.length) {
       el.querySelector('.verif-layout').outerHTML = `<div class="card">${emptyState({ ico: 'gauge', title: 'No hay equipos disponibles', text: 'No tienes equipos activos asignados a tus departamentos. Solicítalo a un administrador.' })}</div>`;
@@ -79,20 +82,32 @@ async function elegir(id) {
         sb.from('patrones_calbas').select('*').eq('activo_calbas', true).order('codigo_calbas').then(must),
         sb.from('tipos_equipo_calbas').select('*').eq('clave_calbas', eq.tipo_clave_calbas).single().then(must),
       ]);
-      ctx = { e: e.data, tipo: tipo.data, pats: pats.data.filter((p) => p.tipo_id_calbas === e.data.tipo_id_calbas && (!p.fecha_vencimiento_calbas || p.fecha_vencimiento_calbas >= hoy)) };
-      campos.innerHTML = `
-        ${ctx.tipo.guia_calbas ? `<div class="notice info">${icon('info')}<span>${esc(ctx.tipo.guia_calbas)}</span></div>` : ''}
-        <div class="form-grid">
-          <div class="field"><label for="v-pat">Patrón de referencia <span class="req">*</span></label><select id="v-pat" name="patron" required>
-            <option value="">${ctx.pats.length ? 'Selecciona…' : 'No hay patrones vigentes para este tipo'}</option>${ctx.pats.map((p) => `<option value="${p.id_calbas}">${esc(p.codigo_calbas)} · ${esc(p.descripcion_calbas)}</option>`).join('')}</select></div>
-          <div class="field"><label for="v-ref">Valor de referencia (${esc(U(ctx.e.unidad_calbas))}) <span class="req">*</span></label>
-            <input id="v-ref" name="ref" type="number" step="any" inputmode="decimal" required ${ctx.tipo.permite_negativos_calbas ? '' : 'min="0"'}></div>
-        </div>
-        ${lecturasHTML(ctx.e.unidad_calbas, ctx.tipo.permite_negativos_calbas)}`;
-      campos.querySelector('#v-pat').addEventListener('change', (ev) => {
-        const p = ctx.pats.find((x) => x.id_calbas === ev.target.value);
-        if (p?.valor_nominal_calbas != null) { campos.querySelector('#v-ref').value = p.valor_nominal_calbas; preview(); }
-      });
+      ctx = { e: e.data, tipo: tipo.data, metodo: tipo.data.metodo_calbas || 'PUNTO_UNICO',
+        pats: pats.data.filter((p) => p.tipo_id_calbas === e.data.tipo_id_calbas && (!p.fecha_vencimiento_calbas || p.fecha_vencimiento_calbas >= hoy)) };
+      if (ctx.metodo === 'SOLO_CALIBRACION') {
+        campos.innerHTML = `<div class="notice info">${icon('info')}<span>${esc(ctx.tipo.guia_calbas || 'Este tipo de equipo no lleva verificación interna.')} <a href="#/calibraciones">Ir a Calibraciones</a></span></div>`;
+      } else {
+        const patronSel = `<div class="field"><label for="v-pat">${ctx.metodo === 'MULTIPUNTO' ? 'Juego de buffers / patrón' : 'Patrón de referencia'} <span class="req">*</span></label><select id="v-pat" name="patron" required>
+            <option value="">${ctx.pats.length ? 'Selecciona…' : 'No hay patrones vigentes para este tipo (regístralo en Patrones)'}</option>${ctx.pats.map((p) => `<option value="${p.id_calbas}">${esc(p.codigo_calbas)} · ${esc(p.descripcion_calbas)}${p.lote_calbas ? ` · lote ${esc(p.lote_calbas)}` : ''}</option>`).join('')}</select></div>`;
+        campos.innerHTML = `
+          ${ctx.tipo.guia_calbas ? `<div class="notice info">${icon('info')}<span>${esc(ctx.tipo.guia_calbas)}</span></div>` : ''}
+          ${ctx.metodo === 'MULTIPUNTO' ? multipuntoHTML(patronSel) : puntoUnicoHTML(patronSel)}
+          ${pieHTML()}`;
+        campos.querySelector('#v-pat').addEventListener('change', (ev) => {
+          const p = ctx.pats.find((x) => x.id_calbas === ev.target.value);
+          if (ctx.metodo === 'PUNTO_UNICO' && p?.valor_nominal_calbas != null) { campos.querySelector('#v-ref').value = p.valor_nominal_calbas; preview(); }
+        });
+        // Mostrar / ocultar la sección de ajuste o corrección
+        campos.querySelector('#v-ajuste').addEventListener('change', (ev) => {
+          campos.querySelector('#v-ajuste-box').classList.toggle('hidden', !ev.target.checked);
+          campos.querySelectorAll('#v-ajuste-box input[data-post]').forEach((i) => { i.required = ev.target.checked; });
+          if (ev.target.checked && ctx.metodo === 'PUNTO_UNICO') {
+            const { f } = leerGenerico();
+            if (f.correccion.value === '' && f.ref.value !== '' && f.l1.value !== '') f.correccion.value = fmtNum6(Number(f.ref.value) - Number(f.l1.value));
+          }
+          preview();
+        });
+      }
     }
     info.innerHTML = fichaCorta(eq);
   } catch (err) { campos.innerHTML = `<div class="notice error">${esc(errMsg(err))}</div>`; }
@@ -107,19 +122,81 @@ function fichaCorta(e) {
 }
 
 function lecturasHTML(unidad, negativos) {
-  const hoy = todayISO();
   const at = `type="number" step="any" inputmode="decimal" required ${negativos ? '' : 'min="0"'}`;
   return `<h4 class="section-label mt">Lecturas del equipo <span class="u">(<span id="v-ulect">${esc(U(unidad))}</span>)</span></h4>
     <div class="lect-grid">
       ${[1, 2, 3].map((i) => `<div class="field"><label for="v-l${i}">Lectura ${i} <span class="req">*</span></label><input id="v-l${i}" name="l${i}" ${at}></div>`).join('')}
       <div class="field avg"><label for="v-avg">Promedio</label><output id="v-avg" class="mono">—</output></div>
-    </div>
-    <div class="form-grid">
+    </div>${pieHTML()}`;
+}
+function pieHTML() {
+  const hoy = todayISO();
+  return `<div class="form-grid mt">
       <div class="field"><label for="v-fecha">Fecha <span class="req">*</span></label><input id="v-fecha" name="fecha" type="date" value="${hoy}" max="${hoy}" required></div>
-      <div class="field full"><label for="v-obs">Observaciones</label><textarea id="v-obs" name="obs" rows="2" maxlength="500" placeholder="Opcional"></textarea></div>
+      <div class="field full"><label for="v-obs">Observaciones</label><textarea id="v-obs" name="obs" rows="2" maxlength="500" placeholder="Sin observaciones"></textarea></div>
     </div>
     <div class="form-actions"><button type="submit" class="btn primary lg" id="v-save">${icon('save')} Registrar verificación</button></div>`;
 }
+const fmtNum6 = (n) => String(Math.round(n * 1e6) / 1e6);
+const numAt = () => `type="number" step="any" inputmode="decimal" ${ctx.tipo.permite_negativos_calbas ? '' : 'min="0"'}`;
+
+// Potenciómetro: una lectura por buffer y, si hubo ajuste, la lectura después del ajuste
+function multipuntoHTML(patronSel) {
+  const u = U(ctx.e.unidad_calbas);
+  const puntos = ctx.tipo.puntos_referencia_calbas || [];
+  return `<div class="form-grid">${patronSel}
+      <div class="field"><label for="v-temp">Temperatura de los buffers (°C)</label><input id="v-temp" name="temp" type="number" step="any" inputmode="decimal" placeholder="Opcional, p. ej. 25"></div></div>
+    <h4 class="section-label mt">Lecturas en cada buffer <span class="u">(${esc(u)})</span></h4>
+    <div class="pt-table">
+      <div class="pt-row pt-head"><span>Buffer</span><span>Lectura del equipo</span><span>Desviación</span><span>Estado</span></div>
+      ${puntos.map((r, i) => `<div class="pt-row" data-pt="${i}">
+        <span class="pt-ref"><input name="ref${i}" ${numAt()} required value="${esc(r)}" aria-label="Valor del buffer ${i + 1}"></span>
+        <span><input name="l${i + 1}" ${numAt()} required placeholder="${esc(r)}" aria-label="Lectura en el buffer ${esc(r)}"></span>
+        <span class="mono" data-dev>—</span><span data-st>${pill('Pendiente', 'gray')}</span></div>`).join('')}
+    </div>
+    <label class="switch-row mt"><span><b>Se realizó ajuste del potenciómetro</b><small>Márcalo si alguna lectura se desvió y ajustaste el equipo. Registra las lecturas después del ajuste.</small></span><input type="checkbox" id="v-ajuste" name="ajuste"></label>
+    <div id="v-ajuste-box" class="ajuste-box hidden">
+      <h4 class="section-label">Lecturas después del ajuste <span class="u">(${esc(u)})</span></h4>
+      <div class="pt-table">
+        ${puntos.map((r, i) => `<div class="pt-row" data-post-row="${i}"><span class="pt-ref"><b>${esc(r)}</b></span>
+          <span><input name="post${i}" data-post ${numAt()} placeholder="${esc(r)}" aria-label="Lectura después del ajuste en el buffer ${esc(r)}"></span>
+          <span class="mono" data-dev>—</span><span data-st>${pill('Pendiente', 'gray')}</span></div>`).join('')}
+      </div>
+    </div>`;
+}
+
+// Termómetro / termohigrómetro: patrón vs lectura; si hay desviación, corrección y lectura final
+function puntoUnicoHTML(patronSel) {
+  const u = U(ctx.e.unidad_calbas);
+  return `<div class="form-grid">${patronSel}<div></div>
+      <div class="field"><label for="v-ref">Medición patrón (${esc(u)}) <span class="req">*</span></label><input id="v-ref" name="ref" ${numAt()} required placeholder="Ej. 0 en punto de hielo"></div>
+      <div class="field"><label for="v-l1">Medición del ${esc(ctx.tipo.nombre_calbas.toLowerCase())} (${esc(u)}) <span class="req">*</span></label><input id="v-l1" name="l1" ${numAt()} required></div>
+    </div>
+    <details class="rep-box"><summary>${icon('repeat')} Agregar lecturas de repetibilidad (opcional)</summary>
+      <div class="form-grid"><div class="field"><label for="v-l2">Lectura 2</label><input id="v-l2" name="l2" ${numAt()}></div>
+        <div class="field"><label for="v-l3">Lectura 3</label><input id="v-l3" name="l3" ${numAt()}></div></div></details>
+    <div class="dev-strip" id="v-dev"><small>Desviación (medición − patrón)</small><b class="mono">—</b></div>
+    <label class="switch-row mt"><span><b>Se aplicó corrección</b><small>Si hubo desviación, corrige el equipo y registra cuánto le subiste (+) o bajaste (−) y la lectura después de corregir.</small></span><input type="checkbox" id="v-ajuste" name="ajuste"></label>
+    <div id="v-ajuste-box" class="ajuste-box hidden"><div class="form-grid">
+      <div class="field"><label for="v-cor">Corrección aplicada (${esc(u)})</label><input id="v-cor" name="correccion" type="number" step="any" inputmode="decimal" placeholder="+ sube / − baja"><small class="hint">Se sugiere el valor que lleva la desviación a cero.</small></div>
+      <div class="field"><label for="v-post0">Medición después de corregir (${esc(u)}) <span class="req">*</span></label><input id="v-post0" name="post0" data-post ${numAt()}></div>
+      <div class="dev-strip full" id="v-dev-fin"><small>Desviación final (debe ser 0)</small><b class="mono">—</b></div></div></div>`;
+}
+
+function leerGenerico() {
+  const f = root.querySelector('#vf').elements;
+  const num = (x) => (x === undefined || x === null || x === '' ? null : Number(x));
+  const ajuste = !!f.ajuste?.checked;
+  if (ctx.metodo === 'MULTIPUNTO') {
+    const n = (ctx.tipo.puntos_referencia_calbas || []).length;
+    const refs = [], lect = [], post = [];
+    for (let i = 0; i < n; i++) { refs.push(num(f[`ref${i}`]?.value)); lect.push(num(f[`l${i + 1}`]?.value)); post.push(num(f[`post${i}`]?.value)); }
+    return { f, ajuste, refs, lect, post };
+  }
+  const lect = ['l1', 'l2', 'l3'].map((k) => num(f[k]?.value));
+  return { f, ajuste, ref: num(f.ref?.value), lect, post: [num(f.post0?.value)], cor: num(f.correccion?.value) };
+}
+const tolDe = (e, ref) => (e.tolerancia_tipo_calbas === 'PORCENTAJE' ? Math.abs(ref) * e.tolerancia_calbas / 100 : Number(e.tolerancia_calbas));
 
 // Criterio aplicable a una báscula (refleja validar_verificacion_calbas)
 function criterioBascula(fecha) {
@@ -154,6 +231,7 @@ function preview() {
   if (!eq) return card(pend, [['Equipo', '—'], ['Promedio', '—'], ['Error', '—'], ['Tolerancia', '—']], 'Selecciona un equipo para comenzar.');
   const { f, est } = leer();
   const avg = root.querySelector('#v-avg');
+  if (ctx.metodo === 'SOLO_CALIBRACION') return card(pill('No aplica', 'info'), [['Equipo', eq.codigo_calbas]], 'Este equipo solo lleva calibraciones externas.');
   if (!f.patron) return card(pend, [['Equipo', eq.codigo_calbas]], 'Cargando datos del equipo…');
   try {
     if (eq.origen_calbas === 'bascula') {
@@ -174,20 +252,47 @@ function preview() {
       return card(dictamenPill(ok ? 'CUMPLE' : 'NO_CUMPLE'), base, `${bajoMin ? `⚠ La pesa patrón está por debajo de la capacidad mínima de la báscula (${fmtVal(b.capacidad_minima_calbas)} ${U(b.unidad_calbas)}); usa una pesa mayor para una verificación representativa. ` : ''}Dictamen orientativo. La base de datos lo recalcula al guardar.`);
     }
     const { e } = ctx;
-    const ref = f.ref.value === '' ? null : Number(f.ref.value);
     const ue = U(e.unidad_calbas);
-    if (avg) avg.textContent = est ? `${fmtVal(est.prom)} ${ue}` : '—';
-    const tol = ref == null ? null : (e.tolerancia_tipo_calbas === 'PORCENTAJE' ? Math.abs(ref) * e.tolerancia_calbas / 100 : Number(e.tolerancia_calbas));
-    const base = [['Valor de referencia', ref == null ? '—' : `${fmtVal(ref)} ${ue}`],
-      ['Tolerancia', tol == null ? '—' : `± ${fmtVal(tol, 4)} ${ue}`, e.tolerancia_tipo_calbas === 'PORCENTAJE' ? `${fmtVal(e.tolerancia_calbas)} % de la referencia` : 'Absoluta'],
-      ['Promedio', est ? `${fmtVal(est.prom)} ${ue}` : '—']];
-    if (ref == null || !est) return card(pend, base, 'Captura el valor de referencia y las tres lecturas.');
-    const err = est.prom - ref;
-    const okErr = Math.abs(err) <= tol + 1e-12;
-    const okCv = !e.cv_max_pct_calbas || (est.cv ?? 0) <= e.cv_max_pct_calbas;
-    base.push(['Error', `${fmtSigned(err)} ${ue}`, okErr ? 'Dentro de tolerancia' : 'Fuera de tolerancia']);
-    if (e.cv_max_pct_calbas) base.push(['CV (repetibilidad)', `${fmtVal(est.cv, 3)} %`, `Máximo ${fmtVal(e.cv_max_pct_calbas)} %`]);
-    return card(dictamenPill(okErr && okCv ? 'CUMPLE' : 'NO_CUMPLE'), base, 'Dictamen orientativo. La base de datos lo recalcula al guardar.');
+    const tolTxt = e.tolerancia_tipo_calbas === 'PORCENTAJE' ? `± ${fmtVal(e.tolerancia_calbas)} %` : `± ${fmtVal(e.tolerancia_calbas, 4)} ${ue}`;
+    const g = leerGenerico();
+    const estadoPt = (d, tol) => (d == null ? pill('Pendiente', 'gray') : Math.abs(d) <= tol + 1e-12 ? pill('Cumple', 'ok') : pill('Fuera', 'bad'));
+    const finalTxt = (ok) => (ok == null ? '' : ok ? ' · después del ajuste: cumple' : ' · después del ajuste: no cumple');
+    if (ctx.metodo === 'MULTIPUNTO') {
+      let ok = true, todos = true, maxD = null, okPost = null, todosPost = g.ajuste;
+      g.refs.forEach((r, i) => {
+        const row = root.querySelector(`[data-pt="${i}"]`), l = g.lect[i];
+        const d = r == null || l == null ? null : l - r, tol = r == null ? 0 : tolDe(e, r);
+        if (d == null) todos = false; else { if (Math.abs(d) > tol + 1e-12) ok = false; if (maxD == null || Math.abs(d) > Math.abs(maxD)) maxD = d; }
+        row.querySelector('[data-dev]').textContent = d == null ? '—' : fmtSigned(d, 4);
+        row.querySelector('[data-st]').innerHTML = estadoPt(d, tol);
+        const prow = root.querySelector(`[data-post-row="${i}"]`), p = g.post[i];
+        const dp = r == null || p == null ? null : p - r;
+        if (prow) { prow.querySelector('[data-dev]').textContent = dp == null ? '—' : fmtSigned(dp, 4); prow.querySelector('[data-st]').innerHTML = estadoPt(dp, tol); }
+        if (g.ajuste) { if (dp == null) todosPost = false; else okPost = (okPost ?? true) && Math.abs(dp) <= tol + 1e-12; }
+      });
+      const base = [['Buffers', g.refs.map((r) => fmtVal(r)).join(' / ')], ['Tolerancia por buffer', tolTxt],
+        ['Mayor desviación', maxD == null ? '—' : `${fmtSigned(maxD, 4)} ${ue}`]];
+      if (g.ajuste) base.push(['Después del ajuste', todosPost ? (okPost ? 'Todos en tolerancia' : 'Aún fuera de tolerancia') : 'Captura las lecturas']);
+      if (!todos) return card(pend, base, 'Captura la lectura del equipo en cada buffer.');
+      return card(dictamenPill(ok ? 'CUMPLE' : 'NO_CUMPLE'), base, `Dictamen «como se encontró»${finalTxt(g.ajuste && todosPost ? okPost : null)}. La base de datos lo recalcula al guardar.`);
+    }
+    // PUNTO_UNICO
+    const ls = g.lect.filter((x) => x != null);
+    const prom = ls.length ? ls.reduce((s, x) => s + x, 0) / ls.length : null;
+    const d = g.ref == null || prom == null ? null : prom - g.ref;
+    const tol = g.ref == null ? null : tolDe(e, g.ref);
+    root.querySelector('#v-dev b').textContent = d == null ? '—' : `${fmtSigned(d, 4)} ${ue}`;
+    root.querySelector('#v-dev').className = `dev-strip ${d == null ? '' : Math.abs(d) < 1e-9 ? 'ok' : Math.abs(d) <= tol + 1e-12 ? 'warn' : 'bad'}`;
+    const p = g.post[0], df = g.ref == null || p == null ? null : p - g.ref;
+    const fin = root.querySelector('#v-dev-fin');
+    if (fin) { fin.querySelector('b').textContent = df == null ? '—' : `${fmtSigned(df, 4)} ${ue}`; fin.className = `dev-strip full ${df == null ? '' : Math.abs(df) < 1e-9 ? 'ok' : Math.abs(df) <= tol + 1e-12 ? 'warn' : 'bad'}`; }
+    const base = [['Medición patrón', g.ref == null ? '—' : `${fmtVal(g.ref)} ${ue}`], ['Medición del equipo', prom == null ? '—' : `${fmtVal(prom)} ${ue}`, ls.length > 1 ? `Promedio de ${ls.length} lecturas` : ''],
+      ['Desviación', d == null ? '—' : `${fmtSigned(d, 4)} ${ue}`], ['Tolerancia', tolTxt]];
+    if (g.ajuste) base.push(['Corrección aplicada', g.cor == null ? '—' : `${fmtSigned(g.cor, 4)} ${ue}`], ['Desviación final', df == null ? '—' : `${fmtSigned(df, 4)} ${ue}`]);
+    if (d == null) return card(pend, base, 'Captura la medición patrón y la del equipo.');
+    const ok = Math.abs(d) <= tol + 1e-12;
+    const nota = !g.ajuste && Math.abs(d) > 1e-9 ? 'Hay desviación: si corriges el equipo, marca «Se aplicó corrección» y registra la lectura final. ' : '';
+    return card(dictamenPill(ok ? 'CUMPLE' : 'NO_CUMPLE'), base, `${nota}Dictamen «como se encontró»${finalTxt(g.ajuste && df != null ? Math.abs(df) <= tol + 1e-12 : null)}. La base de datos lo recalcula al guardar.`);
   } catch (err) { return card(pend, [['Equipo', eq.codigo_calbas]], err.message); }
 }
 
@@ -195,9 +300,10 @@ async function guardar(ev) {
   ev.preventDefault();
   const form = ev.currentTarget;
   if (!eq) { toast('Selecciona un equipo.', 'warning'); return; }
+  if (eq.origen_calbas !== 'bascula' && ctx.metodo === 'SOLO_CALIBRACION') { toast('Este equipo no lleva verificación interna.', 'warning'); return; }
   if (!checkForm(form)) return;
   const { f, est, lecturas } = leer();
-  if (!est) { toast('Captura las tres lecturas.', 'warning'); return; }
+  if (eq.origen_calbas === 'bascula' && !est) { toast('Captura las tres lecturas.', 'warning'); return; }
   const btn = root.querySelector('#v-save');
   btn.disabled = true; btn.innerHTML = '<span class="spinner sm"></span> Registrando…';
   try {
@@ -215,26 +321,34 @@ async function guardar(ev) {
       }).select('id_calbas, dictamen_calbas, error_indicacion_calbas, emt_permitido_calbas').single()).data;
       if (r.dictamen_calbas === 'NO_CUMPLE') sb.functions.invoke('alerta_inmediata_calbas', { body: { verification_id_calbas: r.id_calbas } }).catch(() => {});
     } else {
-      r = must(await sb.from('verificaciones_equipo_calbas').insert({
-        equipo_id_calbas: eq.id_calbas, departamento_id_calbas: eq.departamento_id_calbas, patron_id_calbas: f.patron.value,
-        valor_referencia_calbas: Number(f.ref.value), lectura_1_calbas: lecturas[0], lectura_2_calbas: lecturas[1], lectura_3_calbas: lecturas[2],
-        fecha_calbas: f.fecha.value, observaciones_calbas: f.obs.value.trim() || null,
-      }).select('id_calbas, dictamen_calbas').single()).data;
+      const g = leerGenerico();
+      const row = { equipo_id_calbas: eq.id_calbas, departamento_id_calbas: eq.departamento_id_calbas, patron_id_calbas: f.patron.value,
+        fecha_calbas: f.fecha.value, observaciones_calbas: f.obs.value.trim() || null, ajuste_realizado_calbas: g.ajuste };
+      if (ctx.metodo === 'MULTIPUNTO') {
+        Object.assign(row, { referencias_calbas: g.refs, valor_referencia_calbas: g.refs[0], temperatura_calbas: f.temp.value === '' ? null : Number(f.temp.value),
+          lectura_1_calbas: g.lect[0], lectura_2_calbas: g.lect[1] ?? null, lectura_3_calbas: g.lect[2] ?? null,
+          lecturas_post_calbas: g.ajuste ? g.post : null });
+      } else {
+        Object.assign(row, { valor_referencia_calbas: g.ref, lectura_1_calbas: g.lect[0], lectura_2_calbas: g.lect[1], lectura_3_calbas: g.lect[2],
+          correccion_calbas: g.ajuste ? g.cor : null, lecturas_post_calbas: g.ajuste ? g.post : null });
+      }
+      r = must(await sb.from('verificaciones_equipo_calbas').insert(row).select('id_calbas, dictamen_calbas, dictamen_final_calbas').single()).data;
     }
-    const ok = r.dictamen_calbas === 'CUMPLE';
-    toast(ok ? `Verificación registrada: ${eq.codigo_calbas} CUMPLE.` : `Verificación registrada: ${eq.codigo_calbas} NO CUMPLE. Retira el equipo de uso y notifica a Calidad.`, ok ? 'success' : 'error', 8000);
-    resultado(ok);
+    const ok = r.dictamen_calbas === 'CUMPLE', fin = r.dictamen_final_calbas;
+    const okFinal = fin ? fin === 'CUMPLE' : ok;
+    toast(okFinal ? `Verificación registrada: ${eq.codigo_calbas} ${fin && !ok ? 'cumple después del ajuste' : 'cumple'}.` : `Verificación registrada: ${eq.codigo_calbas} NO CUMPLE. Retira el equipo de uso y notifica a Calidad.`, okFinal ? 'success' : 'error', 8000);
+    resultado(okFinal, fin && !ok);
   } catch (err) {
     toast(errMsg(err), 'error');
     btn.disabled = false; btn.innerHTML = `${icon('save')} Registrar verificación`; refreshIcons();
   }
 }
 
-function resultado(ok) {
+function resultado(ok, ajustado = false) {
   root.querySelector('.verif-layout').innerHTML = `<div class="card result-card ${ok ? 'ok' : 'bad'}">
-    <div class="result-ico">${icon(ok ? 'circle-check-big' : 'octagon-alert')}</div>
-    <h2>${ok ? 'El equipo cumple' : 'El equipo no cumple'}</h2>
-    <p>${esc(eq.codigo_calbas)} · ${esc(eq.tipo_nombre_calbas)} — ${ok ? 'puede seguir en uso hasta su próxima verificación.' : 'identifícalo como “fuera de uso” y solicita ajuste o calibración.'}</p>
+    <div class="result-ico">${icon(ok ? (ajustado ? 'wrench' : 'circle-check-big') : 'octagon-alert')}</div>
+    <h2>${ok ? (ajustado ? 'El equipo cumple después del ajuste' : 'El equipo cumple') : 'El equipo no cumple'}</h2>
+    <p>${esc(eq.codigo_calbas)} · ${esc(eq.tipo_nombre_calbas)} — ${ok ? (ajustado ? 'se registró la lectura como se encontró y como se dejó; puede seguir en uso.' : 'puede seguir en uso hasta su próxima verificación.') : 'identifícalo como “fuera de uso” y solicita ajuste o calibración.'}</p>
     <div class="page-actions center">
       ${ok ? '' : `<button class="btn red" data-go="#/historial?seguimiento=pendiente">${icon('wrench')} Registrar acción correctiva</button>`}
       <button class="btn primary" data-go="#/verificar">${icon('clipboard-plus')} Registrar otra</button>

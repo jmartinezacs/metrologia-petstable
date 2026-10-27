@@ -8,7 +8,7 @@ import {
   sb, state, esc, icon, refreshIcons, toast, openModal, confirmDialog, checkForm, formValues, nullIfEmpty, must,
   DataTable, emptyState, pill, fmtDate, fmtVal, fmtSigned, calPill, verPill, dictamenPill, getDepartamentos, getTipos,
   invalidarCatalogos, tipoIcono, CLASES, CRITERIOS, ganchos, navigate, sanitizeSearch, debounce, prefs, abrirCertificado,
-  U, convertirMasa, TIPO_BASCULA,
+  U, convertirMasa, TIPO_BASCULA, METODOS, dictamenConAjuste,
 } from '../core.js';
 
 let root, table, todos = [];
@@ -56,11 +56,11 @@ export default {
             <div><b class="cell-main">${esc(e.codigo_calbas)}</b><span class="cell-sub">${esc(e.tipo_nombre_calbas)}${e.descripcion_calbas ? ` · ${esc(e.descripcion_calbas)}` : ''}</span></div></div>` },
         { label: 'Ubicación', render: (e) => `<b class="cell-main">${esc(e.departamento_calbas || '—')}</b><span class="cell-sub">${esc(e.ubicacion_calbas || '')}</span>` },
         { label: 'Rango', render: (e) => (e.rango_max_calbas != null ? `<span class="mono">${fmtVal(e.rango_min_calbas ?? 0)}–${fmtVal(e.rango_max_calbas)} ${esc(U(e.unidad_calbas))}</span>` : `<span class="mono">${esc(U(e.unidad_calbas))}</span>`) },
-        { label: 'Verificación', render: (e) => `${verPill(e.estado_verificacion_calbas)}<span class="cell-sub">${e.ultima_verificacion_calbas ? `Última ${fmtDate(e.ultima_verificacion_calbas)} · ${e.ultimo_dictamen_calbas === 'NO_CUMPLE' ? 'No cumple' : 'Cumple'}` : (e.frecuencia_verificacion_dias_calbas === 1 ? "Diaria" : `Cada ${e.frecuencia_verificacion_dias_calbas} días`)}</span>` },
+        { label: 'Verificación', render: (e) => `${verPill(e.estado_verificacion_calbas)}<span class="cell-sub">${e.requiere_verificacion_calbas === false ? 'Sin verificación interna' : e.ultima_verificacion_calbas ? `Última ${fmtDate(e.ultima_verificacion_calbas)} · ${e.ultimo_dictamen_calbas === 'NO_CUMPLE' ? 'No cumple' : 'Cumple'}` : (e.frecuencia_verificacion_dias_calbas === 1 ? "Diaria" : `Cada ${e.frecuencia_verificacion_dias_calbas} días`)}</span>` },
         { label: 'Calibración', render: (e) => `${calPill(e.estado_calibracion_calbas)}<span class="cell-sub">${e.vencimiento_calibracion_calbas ? `Vence ${fmtDate(e.vencimiento_calibracion_calbas)}` : 'Sin certificado'}</span>` },
         { label: '', cls: 'actions', render: (e) => `<div class="row-actions">
             <button class="icon-btn" data-ficha="${e.id_calbas}" title="Ficha del equipo" aria-label="Ficha del equipo">${icon('file-text')}</button>
-            ${e.activo_calbas ? `<button class="icon-btn" data-verif="${e.id_calbas}" data-origen="${e.origen_calbas}" title="Registrar verificación" aria-label="Registrar verificación">${icon('clipboard-plus')}</button>` : pill('Inactivo', 'gray')}
+            ${e.activo_calbas && e.requiere_verificacion_calbas === false ? '' : e.activo_calbas ? `<button class="icon-btn" data-verif="${e.id_calbas}" data-origen="${e.origen_calbas}" title="Registrar verificación" aria-label="Registrar verificación">${icon('clipboard-plus')}</button>` : pill('Inactivo', 'gray')}
             ${state.isAdmin ? `<button class="icon-btn" data-editar="${e.id_calbas}" title="Editar" aria-label="Editar">${icon('pencil')}</button>` : ''}</div>` },
       ],
       empty: { ico: 'gauge', title: 'Sin equipos registrados', text: state.isAdmin ? 'Registra tu primer equipo con el botón “Nuevo equipo”.' : 'No hay equipos asignados a tus departamentos.' },
@@ -146,12 +146,13 @@ async function abrirFicha(id) {
     e.origen_calbas === 'bascula' ? sb.from('basculas_calbas').select('*').eq('id_calbas', id).maybeSingle() : sb.from('equipos_calbas').select('*').eq('id_calbas', id).maybeSingle(),
   ]);
   const d = det.data || {};
+  const tipoFicha = e.origen_calbas === 'equipo' ? (await getTipos()).find((t) => t.clave_calbas === e.tipo_clave_calbas) : null;
   const u = U(d.unidad_calbas || e.unidad_calbas);
   const tec = e.origen_calbas === 'bascula'
     ? [['Clase de exactitud', CLASES[d.clase_exactitud_calbas]], ['Capacidad', `${fmtVal(d.capacidad_minima_calbas)} – ${fmtVal(d.capacidad_maxima_calbas)} ${u}`],
        ['División mínima (d)', `${fmtVal(d.division_minima_calbas)} ${u}`], ['División de verificación (e)', `${fmtVal(d.division_verificacion_e_calbas)} ${u}`],
        ['Criterio configurado', CRITERIOS[d.criterio_evaluacion_calbas]], ['Unidad de la báscula', u]]
-    : [['Magnitud', e.magnitud_calbas], ['Rango', d.rango_max_calbas != null ? `${fmtVal(d.rango_min_calbas ?? 0)} – ${fmtVal(d.rango_max_calbas)} ${u}` : '—'],
+    : [['Método', METODOS[tipoFicha?.metodo_calbas]?.[0] || '—'], ['Magnitud', e.magnitud_calbas], ...(tipoFicha?.puntos_referencia_calbas ? [['Puntos de referencia', tipoFicha.puntos_referencia_calbas.map((x) => fmtVal(x)).join(' / ')]] : []), ['Rango', d.rango_max_calbas != null ? `${fmtVal(d.rango_min_calbas ?? 0)} – ${fmtVal(d.rango_max_calbas)} ${u}` : '—'],
        ['Resolución', d.resolucion_calbas ? `${fmtVal(d.resolucion_calbas)} ${u}` : '—'],
        ['Tolerancia', d.tolerancia_tipo_calbas === 'PORCENTAJE' ? `± ${fmtVal(d.tolerancia_calbas)} % de la referencia` : `± ${fmtVal(d.tolerancia_calbas)} ${u}`],
        ['CV máximo', d.cv_max_pct_calbas ? `${fmtVal(d.cv_max_pct_calbas)} %` : 'No aplica'],
@@ -160,7 +161,7 @@ async function abrirFicha(id) {
     ['Número de serie', e.numero_serie_calbas], ['Verificar cada', e.frecuencia_verificacion_dias_calbas === 1 ? 'Diario' : `${e.frecuencia_verificacion_dias_calbas} días`]];
   const tiles = (rows) => `<dl class="info-tiles">${rows.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v || '—')}</dd></div>`).join('')}</dl>`;
   // En básculas el promedio se muestra en la unidad de la pesa patrón
-  const prom = (v) => (v.origen_calbas === 'bascula' ? `${fmtVal(convertirMasa(v.promedio_lecturas_calbas, v.unidad_calbas, v.unidad_referencia_calbas))} ${U(v.unidad_referencia_calbas)}` : `${fmtVal(v.promedio_lecturas_calbas)} ${U(v.unidad_calbas)}`);
+  const prom = (v) => (v.referencias_calbas ? `${[v.lectura_1_calbas, v.lectura_2_calbas, v.lectura_3_calbas].filter((x) => x != null).map((x) => fmtVal(x)).join(' / ')} ${U(v.unidad_calbas)}` : v.origen_calbas === 'bascula' ? `${fmtVal(convertirMasa(v.promedio_lecturas_calbas, v.unidad_calbas, v.unidad_referencia_calbas))} ${U(v.unidad_referencia_calbas)}` : `${fmtVal(v.promedio_lecturas_calbas)} ${U(v.unidad_calbas)}`);
   const ult = ver?.find((v) => v.estado_calbas === 'vigente');
   const stat = (cls, ico, label, value, sub) => `<div class="ficha-stat ${cls}"><span class="fs-ico">${icon(ico)}</span><div><small>${esc(label)}</small><b>${esc(value)}</b><span>${esc(sub)}</span></div></div>`;
   const dCal = e.dias_calibracion_calbas;
@@ -172,7 +173,7 @@ async function abrirFicha(id) {
         <div class="fh-txt"><b>${esc(e.codigo_calbas)}</b><span>${esc([e.tipo_nombre_calbas, e.departamento_calbas, e.ubicacion_calbas].filter(Boolean).join(' · '))}</span>
           <div class="ficha-status">${verPill(e.estado_verificacion_calbas)} ${calPill(e.estado_calibracion_calbas)} ${e.activo_calbas ? pill('Activo', 'info') : pill('Inactivo', 'gray')}</div></div>
         <div class="fh-actions">
-          ${e.activo_calbas ? `<button type="button" class="btn orange sm" data-go="#/verificar?equipo=${e.id_calbas}">${icon('clipboard-plus')} Verificar</button>` : ''}
+          ${e.activo_calbas && e.requiere_verificacion_calbas !== false ? `<button type="button" class="btn orange sm" data-go="#/verificar?equipo=${e.id_calbas}">${icon('clipboard-plus')} Verificar</button>` : ''}
           <button type="button" class="btn teal sm" data-go="#/historial?equipo=${e.id_calbas}">${icon('history')} Historial</button>
         </div>
       </div>
@@ -187,9 +188,9 @@ async function abrirFicha(id) {
         <section class="ficha-card"><h4>${icon('ruler')} Parámetros metrológicos</h4>${tiles(tec)}</section>
       </div>
       <section class="ficha-card mt"><h4>${icon('clipboard-list')} Últimas verificaciones</h4>
-      ${ver?.length ? `<div class="table-wrap"><table class="table compact"><thead><tr><th>Fecha</th><th>Patrón</th><th>Promedio</th><th>Error</th><th>Tolerancia</th><th>Dictamen</th></tr></thead><tbody>
-        ${ver.map((v) => `<tr><td>${fmtDate(v.fecha_calbas)}</td><td class="mono">${fmtVal(v.valor_referencia_calbas)} ${esc(U(v.unidad_referencia_calbas))}</td><td class="mono">${esc(prom(v))}</td>
-          <td class="mono">${fmtSigned(v.error_calbas)} ${esc(U(v.unidad_calculo_calbas))}</td><td class="mono">± ${fmtVal(v.tolerancia_calbas, 4)} ${esc(U(v.unidad_calculo_calbas))}</td><td>${dictamenPill(v.dictamen_calbas, v.estado_calbas)}</td></tr>`).join('')}</tbody></table></div>`
+      ${ver?.length ? `<div class="table-wrap"><table class="table compact"><thead><tr><th>Fecha</th><th>Patrón</th><th>Lectura</th><th>Error</th><th>Tolerancia</th><th>Dictamen</th></tr></thead><tbody>
+        ${ver.map((v) => `<tr><td>${fmtDate(v.fecha_calbas)}</td><td class="mono">${v.referencias_calbas ? v.referencias_calbas.map((x) => fmtVal(x)).join(" / ") : fmtVal(v.valor_referencia_calbas)} ${esc(U(v.unidad_referencia_calbas))}</td><td class="mono">${esc(prom(v))}</td>
+          <td class="mono">${fmtSigned(v.error_calbas)} ${esc(U(v.unidad_calculo_calbas))}</td><td class="mono">± ${fmtVal(v.tolerancia_calbas, 4)} ${esc(U(v.unidad_calculo_calbas))}</td><td>${dictamenConAjuste(v)}</td></tr>`).join('')}</tbody></table></div>`
         : '<p class="hint center">Aún no hay verificaciones registradas.</p>'}</section>
       <section class="ficha-card mt"><h4>${icon('file-badge')} Calibraciones</h4>
       ${cal?.length ? `<div class="table-wrap"><table class="table compact"><thead><tr><th>Calibración</th><th>Vence</th><th>Certificado</th><th>Laboratorio</th><th>Archivo</th></tr></thead><tbody>
@@ -348,8 +349,8 @@ async function gestionarTipos() {
   const ICONOS = ['thermometer', 'flask-conical', 'pipette', 'droplets', 'gauge', 'timer', 'ruler', 'zap', 'wind', 'microscope', 'activity'];
   await openModal({
     title: 'Tipos de equipo', subtitle: 'Las básculas tienen su propio módulo con cálculo de EMT. Aquí puedes agregar otros instrumentos.', size: 'lg',
-    body: `<div class="table-wrap"><table class="table compact"><thead><tr><th>Tipo</th><th>Magnitud</th><th>Unidades</th><th>Tolerancia sugerida</th><th>Estado</th></tr></thead><tbody>
-      ${tipos.map((t) => `<tr><td><b>${esc(t.nombre_calbas)}</b><span class="cell-sub">${esc(t.clave_calbas)} · prefijo ${esc(t.prefijo_codigo_calbas)}</span></td><td>${esc(t.magnitud_calbas)}</td><td>${esc(t.unidades_calbas.join(', '))}</td>
+    body: `<div class="table-wrap"><table class="table compact"><thead><tr><th>Tipo</th><th>Método</th><th>Magnitud</th><th>Unidades</th><th>Tolerancia sugerida</th><th>Estado</th></tr></thead><tbody>
+      ${tipos.map((t) => `<tr><td><b>${esc(t.nombre_calbas)}</b><span class="cell-sub">${esc(t.clave_calbas)} · prefijo ${esc(t.prefijo_codigo_calbas)}</span></td><td>${esc(METODOS[t.metodo_calbas]?.[0] || '—')}${t.puntos_referencia_calbas ? `<span class="cell-sub">${t.puntos_referencia_calbas.map((x) => fmtVal(x)).join(' / ')}</span>` : ''}</td><td>${esc(t.magnitud_calbas)}</td><td>${esc(t.unidades_calbas.join(', '))}</td>
         <td>${t.tolerancia_sugerida_calbas ? `± ${fmtVal(t.tolerancia_sugerida_calbas)}${t.tolerancia_tipo_sugerida_calbas === 'PORCENTAJE' ? ' %' : ''}` : '—'}</td><td>${t.activo_calbas ? pill('Activo', 'ok') : pill('Inactivo', 'gray')}</td></tr>`).join('')}
       </tbody></table></div>
       <details class="mt"><summary class="btn secondary sm">${icon('plus')} Agregar tipo de equipo</summary>
@@ -362,7 +363,9 @@ async function gestionarTipos() {
         <div class="field"><label for="f-nt_icono">Ícono</label><select id="f-nt_icono" name="nt_icono">${ICONOS.map((i) => `<option>${i}</option>`).join('')}</select></div>
         ${num('nt_tol', 'Tolerancia sugerida', '')}
         <div class="field"><label for="f-nt_toltipo">Tipo de tolerancia</label><select id="f-nt_toltipo" name="nt_toltipo"><option value="ABSOLUTA">Absoluta</option><option value="PORCENTAJE">Porcentaje</option></select></div>
-        <label class="switch-row"><input type="checkbox" name="nt_neg"> <span><b>Admite valores negativos</b></span></label>
+        <div class="field"><label for="f-nt_metodo">Método de verificación</label><select id="f-nt_metodo" name="nt_metodo">${Object.entries(METODOS).map(([k, [l]]) => `<option value="${k}">${esc(l)}</option>`).join('')}</select></div>
+        ${fld('nt_puntos', 'Puntos de referencia (solo varios puntos)', '', 'maxlength="60" placeholder="Ej. 4.01, 7.01, 10.01"')}
+        <label class="switch-row"><span><b>Admite valores negativos</b></span><input type="checkbox" name="nt_neg"></label>
       </div></details>`,
     submitText: 'Guardar tipo nuevo',
     onSubmit: async ({ form }) => {
@@ -370,11 +373,13 @@ async function gestionarTipos() {
       if (!f.nt_nombre.value.trim()) { toast('Para agregar un tipo captura al menos el nombre.', 'warning'); return false; }
       ['nt_nombre', 'nt_clave', 'nt_magnitud', 'nt_unidades', 'nt_prefijo'].forEach((k) => { f[k].required = true; });
       if (!checkForm(form)) return false;
+      if (f.nt_metodo.value === 'MULTIPUNTO' && f.nt_puntos.value.split(',').filter((x) => x.trim() !== '' && Number.isFinite(Number(x))).length < 2) { toast('Indica al menos dos puntos de referencia separados por coma.', 'warning'); return false; }
       must(await sb.from('tipos_equipo_calbas').insert({
         nombre_calbas: f.nt_nombre.value.trim(), clave_calbas: f.nt_clave.value.trim().toUpperCase(), magnitud_calbas: f.nt_magnitud.value.trim(),
         unidades_calbas: f.nt_unidades.value.split(',').map((u) => u.trim()).filter(Boolean), prefijo_codigo_calbas: f.nt_prefijo.value.trim().toUpperCase(),
         icono_calbas: f.nt_icono.value, tolerancia_sugerida_calbas: n(f.nt_tol.value), tolerancia_tipo_sugerida_calbas: f.nt_toltipo.value,
-        permite_negativos_calbas: f.nt_neg.checked,
+        permite_negativos_calbas: f.nt_neg.checked, metodo_calbas: f.nt_metodo.value,
+        puntos_referencia_calbas: f.nt_metodo.value === 'MULTIPUNTO' ? f.nt_puntos.value.split(',').map((x) => Number(x.trim())).filter((x) => Number.isFinite(x)) : null,
       }));
       invalidarCatalogos();
       toast('Tipo de equipo agregado.', 'success');
