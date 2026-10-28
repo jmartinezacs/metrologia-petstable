@@ -23,7 +23,7 @@ export default {
       <section class="page-intro">
         <div><span class="eyebrow">Accesos</span><h1>Usuarios</h1>
           <p>${state.isAdmin ? 'Administra cuentas, fotografías, roles, departamentos y acceso al sistema.' : 'Directorio de personas autorizadas para utilizar el sistema.'}</p></div>
-        <div class="page-actions">${state.isAdmin ? `<button class="btn primary" data-u="nuevo">${icon('user-plus')} Agregar usuario</button>` : ''}</div>
+        <div class="page-actions">${state.isAdmin ? `<button class="btn navy" data-u="nuevo">${icon('user-plus')} Agregar usuario</button>` : ''}</div>
       </section>
       <div class="card">
         <div class="toolbar"><div class="search">${icon('search')}<input type="search" id="u-q" placeholder="Buscar nombre, correo, departamento o puesto" aria-label="Buscar"></div>
@@ -118,7 +118,7 @@ async function formUsuario(u = null) {
         <div class="photo-pick">
           <span id="us-prev">${avatarHTML(u?.nombre_completo_calbas || '?', u ? fotoDe(u.correo_calbas, u.avatar_url_calbas) : '', 'xl')}</span>
           <div class="btns">
-            <label class="btn orange sm" for="us-foto" style="cursor:pointer">${icon('camera')} Subir foto</label>
+            <label class="btn navy sm" for="us-foto" style="cursor:pointer">${icon('camera')} Subir foto</label>
             <button type="button" class="btn teal sm" id="us-galeria">${icon('images')} Fotos existentes</button>
           </div>
           <input id="us-foto" type="file" accept="image/jpeg,image/png,image/webp" class="sr-only">

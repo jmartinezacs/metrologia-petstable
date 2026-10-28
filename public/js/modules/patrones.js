@@ -27,7 +27,7 @@ export default {
       <section class="page-intro">
         <div><span class="eyebrow">Trazabilidad</span><h1>Patrones</h1>
           <p>Pesas patrón y patrones de referencia calibrados con los que se verifican los equipos.</p></div>
-        <div class="page-actions">${state.isAdmin ? `<button class="btn primary" data-pt="nuevo">${icon('plus')} Nuevo patrón</button>` : ''}</div>
+        <div class="page-actions">${state.isAdmin ? `<button class="btn teal" data-pt="nuevo">${icon('plus')} Nuevo patrón</button>` : ''}</div>
       </section>
       <div class="tabs" role="tablist">
         <button role="tab" data-tab="pesas">${icon('weight')} Pesas patrón</button>

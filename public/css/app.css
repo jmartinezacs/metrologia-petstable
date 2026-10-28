@@ -1489,3 +1489,31 @@ input[name="codigo_calbas"]::placeholder { text-transform: none; }
   .type-card { padding: 10px 12px; gap: 10px; }
   .tk-ico { width: 38px; height: 38px; border-radius: 11px; }
 }
+
+/* =====================================================================
+   v7.6 · Menos naranja: navy para guardar/administrar, contorno para
+   configuración; el naranja queda solo en la acción principal de cada página.
+   ===================================================================== */
+.btn.navy { background: linear-gradient(135deg, #0B1E2D, #1D4260); color: #fff; box-shadow: 0 7px 16px rgba(11, 30, 45, .22); border: 0; }
+.btn.navy:hover { filter: brightness(1.15); transform: translateY(-1px); }
+:root[data-theme="dark"] .btn.navy { background: linear-gradient(135deg, #1D4260, #2A5F86); box-shadow: none; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .btn.navy { background: linear-gradient(135deg, #1D4260, #2A5F86); box-shadow: none; } }
+.btn.outline { background: var(--card); color: var(--text); border: 1.5px dashed var(--input-line); box-shadow: none; }
+.btn.outline svg { color: var(--turq-strong); }
+.btn.outline:hover { border-style: solid; border-color: var(--turq); color: var(--turq-strong); background: var(--turq-soft); }
+/* Tarjetas de tipo: selección en turquesa (no naranja) */
+.type-card.on { border-color: var(--turq); box-shadow: 0 0 0 3px var(--turq-soft), var(--shadow); }
+.type-card.on::before, .tk-check { background: var(--turq-strong); }
+/* Avisos push */
+.avisos-estado { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 12px 14px; border-radius: 12px;
+  border: 1px solid var(--line); background: var(--surface, var(--card)); font-size: 13px; }
+.avisos-estado > span { display: inline-flex; align-items: center; gap: 8px; }
+.avisos-estado svg { width: 17px; height: 17px; flex: 0 0 auto; }
+.avisos-estado.ok > span svg { color: var(--ok); }
+.avisos-estado.warn > span svg { color: var(--warn, #C77700); }
+.avisos-estado.bad > span svg { color: var(--bad); }
+.avisos-estado .btns, .avisos-sugerencia .btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.avisos-sugerencia { align-items: center; }
+.avisos-sugerencia > span { flex: 1; }
+.card-head h3 svg { width: 17px; height: 17px; vertical-align: -3px; color: var(--turq-strong); }
+.txt-bad { color: var(--bad); }

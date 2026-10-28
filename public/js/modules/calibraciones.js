@@ -21,7 +21,7 @@ export default {
           <p>Vigencia de la calibración externa de cada equipo y sus certificados.</p></div>
         <div class="page-actions">
           <button class="btn green" data-c="csv">${icon('file-spreadsheet')} Exportar a Excel (CSV)</button>
-          ${state.isAdmin ? `<button class="btn primary" data-c="nueva">${icon('plus')} Registrar calibración</button>` : ''}
+          ${state.isAdmin ? `<button class="btn navy" data-c="nueva">${icon('plus')} Registrar calibración</button>` : ''}
         </div>
       </section>
       <div class="grid grid-4" id="c-kpis"></div>
@@ -75,7 +75,7 @@ async function load(filtroEstado = '') {
           <td data-label="Vencimiento">${fmtDate(e.vencimiento_calibracion_calbas)}${e.dias_calibracion_calbas != null ? `<span class="cell-sub">${e.dias_calibracion_calbas < 0 ? `Hace ${-e.dias_calibracion_calbas} días` : `En ${e.dias_calibracion_calbas} días`}</span>` : ''}</td>
           <td data-label="Certificado">${esc(e.numero_certificado_calbas || '—')}<span class="cell-sub">${esc(e.proveedor_laboratorio_calbas || '')}</span></td>
           <td data-label="Estado">${calPill(e.estado_calibracion_calbas)}</td>
-          ${state.isAdmin ? `<td class="actions"><button class="btn orange sm" data-c="nueva" data-id="${e.id_calbas}">${icon('plus')} Calibración</button></td>` : ''}</tr>`).join('')}
+          ${state.isAdmin ? `<td class="actions"><button class="btn outline sm" data-c="nueva" data-id="${e.id_calbas}">${icon('plus')} Calibración</button></td>` : ''}</tr>`).join('')}
         </tbody></table></div>` : emptyState({ ico: 'badge-check', title: 'Sin equipos en este estado' });
     } else {
       const { data } = must(await sb.from('vw_calibraciones_todas_calbas').select('*').order('fecha_calibracion_calbas', { ascending: false }).limit(500));

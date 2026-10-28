@@ -167,7 +167,7 @@ function seguimientoHTML(v) {
         <div class="field"><label for="sg-fc">Fecha compromiso</label><input id="sg-fc" name="sg_fc" type="date" min="${todayISO()}"></div>
         <div class="field full"><label for="sg-desc">Descripción <span class="req">*</span></label><textarea id="sg-desc" name="sg_desc" rows="2" maxlength="1000" placeholder="Ej. Se retiró la báscula de la línea y se solicitó ajuste al proveedor"></textarea></div>
       </div>
-      <div class="form-actions"><button type="button" class="btn orange" data-seg="crear">${icon('save')} Registrar acción correctiva</button></div></section>`;
+      <div class="form-actions"><button type="button" class="btn red" data-seg="crear">${icon('save')} Registrar acción correctiva</button></div></section>`;
   }
   const info = `<dl class="info-tiles">
       <div><dt>Acción</dt><dd>${esc(ACCIONES[s.accion_calbas] || s.accion_calbas)}</dd></div>

@@ -3,7 +3,7 @@
 // =====================================================================
 import {
   sb, state, prefs, esc, icon, refreshIcons, toast, errMsg, openModal, checkForm, must,
-  destroyCharts, APP_VERSION, TZ, navigate, avatarHTML, fotoDe, restyleCharts, ganchos,
+  destroyCharts, APP_VERSION, TZ, navigate, avatarHTML, fotoDe, restyleCharts, ganchos, push,
 } from './core.js';
 import equipos from './modules/equipos.js';
 import patrones from './modules/patrones.js';
@@ -72,6 +72,7 @@ async function loadProfileAndStart() {
     state.profile = p;
     state.isAdmin = p.rol_calbas === 'admin';
     state.deptos = (deps || []).map((d) => d.departamento_id_calbas);
+    push.sincronizar();
     startApp();
   } catch (err) {
     console.error(err);
@@ -367,6 +368,7 @@ async function login(e) {
 }
 
 async function logout() {
+  await push.desvincular();
   // scope "local": cierra solo esta sesión (otras apps de Pet's Table comparten la cuenta)
   await sb.auth.signOut({ scope: 'local' });
   state.profile = null; state.session = null;

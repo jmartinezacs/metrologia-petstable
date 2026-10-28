@@ -6,6 +6,7 @@
 import {
   sb, state, esc, icon, refreshIcons, todayISO, addDays, fmtDate, fmtDateTime, fmtNum, pill, makeChart, destroyCharts,
   emptyState, errorState, navigate, monthShort, must, avatarHTML, fotoDe, calPill, verPill, tipoIcono, PALETTE, cssVar, ganchos,
+  push, prefs, toast, errMsg,
 } from '../core.js';
 import { cargarEquipos } from './equipos.js';
 
@@ -93,6 +94,7 @@ async function load() {
       ${accesoHTML()}`;
     refreshIcons();
     drawCharts(ver.data, activos, inicio);
+    sugerirAvisos(body, t);
   } catch (err) {
     if (t !== token) return;
     console.error(err);
@@ -118,7 +120,7 @@ function listaPendientes(rows) {
   return `<div class="list">${rows.slice(0, 7).map((e) => `
     <button class="list-item" data-dash="#/verificar?equipo=${e.id_calbas}" style="text-align:left;cursor:pointer;color:inherit">
       ${eqIco(e)}<div class="li-main"><b>${esc(e.codigo_calbas)} · ${esc(e.tipo_nombre_calbas)}</b>
-      <span>${esc(e.departamento_calbas || '')}${e.proxima_verificacion_calbas ? ` · tocaba el ${fmtDate(e.proxima_verificacion_calbas)}` : ' · nunca verificado'}</span></div>
+      <span>${esc(e.departamento_calbas || '')}${e.proxima_verificacion_calbas ? ` · tocaba el ${fmtDate(e.proxima_verificacion_calbas)}` : ' · nunca verificado'}${atraso(e)}</span></div>
       ${verPill(e.estado_verificacion_calbas)}</button>`).join('')}</div>
     ${rows.length > 7 ? `<p class="hint">Y ${rows.length - 7} más en <a href="#/equipos?estado=ver_atrasada">Equipos</a>.</p>` : ''}`;
 }
@@ -203,4 +205,29 @@ function accesoHTML() {
       <p class="access-foot">${icon('lock')} Sesión verificada con tu cuenta corporativa Pet's Table.</p>
     </div>
   </section>`;
+}
+
+// Invita a activar los avisos push si este dispositivo aún no los tiene
+async function sugerirAvisos(body, t) {
+  if (prefs.get('calbas.avisos.omitir') === '1' || (await push.estado()) !== 'inactivo' || t !== token) return;
+  const n = document.createElement('div');
+  n.className = 'notice info avisos-sugerencia';
+  n.innerHTML = `${icon('bell-ring')}<span><b>Activa los avisos en este dispositivo.</b> ${state.isAdmin
+    ? 'Te avisaremos de las calibraciones por vencer, de las verificaciones con 3 días de atraso y de cada «no cumple».'
+    : 'Te avisaremos cada mañana de los equipos que te toca verificar.'}</span>
+    <div class="btns"><button class="btn navy sm" data-av="on">${icon('bell-ring')} Activar</button><button class="btn secondary sm" data-av="no">Ahora no</button></div>`;
+  body.prepend(n);
+  refreshIcons();
+  n.querySelector('[data-av="no"]').addEventListener('click', () => { prefs.set('calbas.avisos.omitir', '1'); n.remove(); });
+  n.querySelector('[data-av="on"]').addEventListener('click', async (e) => {
+    e.currentTarget.disabled = true;
+    try { await push.activar(); toast('Avisos activados en este dispositivo.', 'success'); n.remove(); } catch (err) { toast(errMsg(err), 'error'); e.currentTarget.disabled = false; }
+  });
+}
+
+// Días de atraso; desde 3 días se avisa a los administradores (recordatorios_calbas)
+function atraso(e) {
+  if (e.estado_verificacion_calbas !== 'vencida' || !e.proxima_verificacion_calbas) return '';
+  const d = Math.round((new Date(`${todayISO()}T00:00:00`) - new Date(`${e.proxima_verificacion_calbas}T00:00:00`)) / 864e5);
+  return d > 0 ? ` · <b class="${d >= 3 ? 'txt-bad' : ''}">${d} ${d === 1 ? 'día' : 'días'} de atraso</b>` : '';
 }

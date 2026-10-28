@@ -4,7 +4,7 @@
 // =====================================================================
 import {
   sb, state, esc, icon, refreshIcons, toast, checkForm, must, avatarHTML, fotoDe, fmtDateTime, prefs, APP_VERSION,
-  prepararFoto, subirFotoPropia, ganchos, errMsg,
+  prepararFoto, subirFotoPropia, ganchos, errMsg, push,
 } from '../core.js';
 
 let root;
@@ -76,8 +76,15 @@ function pintar() {
         <ol class="steps"><li>Abre el menú <b>⋮</b>.</li><li>Elige <b>Instalar aplicación</b> o <b>Agregar a pantalla principal</b>.</li></ol>`}
         <p class="hint mt">Para cambiar tu puesto, rol o departamento, solicítalo a un administrador.</p>
       </div>
+    </div>
+    <div class="card mt" id="avisos-card">
+      <div class="card-head"><div><h3>${icon('bell-ring')} Avisos en este dispositivo</h3>
+        <p>${admin ? 'Cada mañana (lunes a sábado, 8:00) te avisamos de las calibraciones por vencer o vencidas y de las verificaciones con 3 días o más de atraso. También recibes al momento cada «no cumple».'
+          : 'Cada mañana (lunes a sábado, 8:00) te avisamos de los equipos que te toca verificar y de los que ya están atrasados.'}</p></div></div>
+      <div id="avisos-estado" class="avisos-estado">${icon('loader')} Revisando…</div>
     </div>`;
   refreshIcons();
+  pintarAvisos();
 
   root.querySelectorAll('[data-theme-opt]').forEach((b) => b.addEventListener('click', () => {
     window.__calbasSetTheme?.(b.dataset.themeOpt);
@@ -114,4 +121,37 @@ function pintar() {
     form.reset();
     toast('Contraseña actualizada.', 'success');
   });
+}
+
+// Estado de los avisos push de este dispositivo
+async function pintarAvisos() {
+  const box = root?.querySelector('#avisos-estado');
+  if (!box) return;
+  const est = await push.estado();
+  const msg = {
+    activo: [`${icon('bell-ring')} <b>Activados</b> en este dispositivo.`, 'ok'],
+    inactivo: [`${icon('bell-off')} <b>Desactivados.</b> Actívalos para recibir los recordatorios.`, 'warn'],
+    bloqueado: [`${icon('bell-off')} <b>Bloqueados por el navegador.</b> Permite las notificaciones de este sitio en la configuración del navegador y vuelve a intentarlo.`, 'bad'],
+    instalar: [`${icon('smartphone')} En iPhone y iPad primero <b>instala la app</b> (Compartir → Agregar a pantalla de inicio) y ábrela desde el ícono.`, 'warn'],
+    'no-soportado': [`${icon('circle-alert')} Este navegador no admite notificaciones.`, 'bad'],
+  }[est];
+  box.className = `avisos-estado ${msg[1]}`;
+  box.innerHTML = `<span>${msg[0]}</span><div class="btns">
+    ${est === 'inactivo' ? `<button type="button" class="btn navy" data-av="on">${icon('bell-ring')} Activar avisos</button>` : ''}
+    ${est === 'activo' ? `<button type="button" class="btn teal" data-av="test">${icon('send')} Enviar aviso de prueba</button>
+      <button type="button" class="btn secondary" data-av="off">${icon('bell-off')} Desactivar</button>` : ''}</div>`;
+  refreshIcons();
+  box.querySelectorAll('[data-av]').forEach((b) => b.addEventListener('click', async () => {
+    b.disabled = true;
+    try {
+      if (b.dataset.av === 'on') { await push.activar(); toast('Avisos activados en este dispositivo.', 'success'); }
+      if (b.dataset.av === 'off') { await push.desactivar(); toast('Avisos desactivados en este dispositivo.', 'success'); }
+      if (b.dataset.av === 'test') {
+        const { data, error } = await sb.functions.invoke('recordatorios_calbas', { body: { accion: 'prueba' } });
+        if (error) throw error;
+        toast(data?.push ? 'Aviso de prueba enviado. Debe llegar en unos segundos.' : 'No se encontró este dispositivo; desactiva y vuelve a activar los avisos.', data?.push ? 'success' : 'warning');
+      }
+    } catch (err) { toast(errMsg(err), 'error'); }
+    pintarAvisos();
+  }));
 }

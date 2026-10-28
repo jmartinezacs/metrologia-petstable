@@ -28,7 +28,7 @@ export default {
         <div><span class="eyebrow">Inventario metrológico</span><h1>Equipos</h1>
           <p>Básculas, termómetros, potenciómetros, micropipetas y demás instrumentos con su estado de verificación y calibración.</p></div>
         <div class="page-actions">
-          ${state.isAdmin ? `<button class="btn teal" data-eq="tipos">${icon('shapes')} Tipos de equipo</button>
+          ${state.isAdmin ? `<button class="btn outline" data-eq="tipos">${icon('settings-2')} Tipos de equipo</button>
           <button class="btn primary" data-eq="nuevo">${icon('plus')} Nuevo equipo</button>` : ''}
         </div>
       </section>
@@ -53,7 +53,7 @@ export default {
       rowKey: 'id_calbas',
       columns: [
         { label: 'Equipo', render: (e) => `<div class="eq-cell"><span class="eq-ico t-${esc(e.tipo_clave_calbas.toLowerCase())}">${icon(tipoIcono(e.tipo_clave_calbas, e.icono_calbas))}</span>
-            <div><b class="cell-main">${esc(e.codigo_calbas)}</b><span class="cell-sub">${esc(e.tipo_nombre_calbas)}${e.descripcion_calbas ? ` · ${esc(e.descripcion_calbas)}` : ''}</span></div></div>` },
+            <div><b class="cell-main">${esc(e.codigo_calbas)}</b><span class="cell-sub">${esc(e.tipo_nombre_calbas)}</span></div></div>` },
         { label: 'Ubicación', render: (e) => `<b class="cell-main">${esc(e.departamento_calbas || '—')}</b><span class="cell-sub">${esc(e.ubicacion_calbas || '')}</span>` },
         { label: 'Rango', render: (e) => (e.rango_max_calbas != null ? `<span class="mono">${fmtVal(e.rango_min_calbas ?? 0)}–${fmtVal(e.rango_max_calbas)} ${esc(U(e.unidad_calbas))}</span>` : `<span class="mono">${esc(U(e.unidad_calbas))}</span>`) },
         { label: 'Verificación', render: (e) => `${verPill(e.estado_verificacion_calbas)}<span class="cell-sub">${e.requiere_verificacion_calbas === false ? 'Sin verificación interna' : e.ultima_verificacion_calbas ? `Última ${fmtDate(e.ultima_verificacion_calbas)} · ${e.ultimo_dictamen_calbas === 'NO_CUMPLE' ? 'No cumple' : 'Cumple'}` : (e.frecuencia_verificacion_dias_calbas === 1 ? "Diaria" : `Cada ${e.frecuencia_verificacion_dias_calbas} días`)}</span>` },
@@ -169,7 +169,7 @@ async function abrirFicha(id) {
   const dCal = e.dias_calibracion_calbas;
   await openModal({
     title: `${e.codigo_calbas} · ${e.tipo_nombre_calbas}`,
-    subtitle: e.descripcion_calbas || '', size: 'lg',
+    subtitle: [e.ubicacion_calbas, e.departamento_calbas].filter(Boolean).join(' · '), size: 'lg',
     body: `<div class="ficha-hero">
         <span class="eq-ico xl t-${esc(e.tipo_clave_calbas.toLowerCase())}">${icon(tipoIcono(e.tipo_clave_calbas, e.icono_calbas))}</span>
         <div class="fh-txt"><b>${esc(e.codigo_calbas)}</b><span>${esc([e.tipo_nombre_calbas, e.departamento_calbas, e.ubicacion_calbas].filter(Boolean).join(' · '))}</span>
@@ -310,7 +310,6 @@ async function formGenerico(d, tipo, deptos) {
     title: editar ? `Editar ${tipo.nombre_calbas.toLowerCase()} ${d.codigo_calbas}` : `Nuevo ${tipo.nombre_calbas.toLowerCase()}`,
     subtitle: tipo.guia_calbas || '', size: 'lg',
     body: `${banner(tipo, editar, d.codigo_calbas)}<div class="form-grid pro-form">${comunes(d, deptos, '', siguienteCodigo(tipo.prefijo_codigo_calbas))}
-      ${fld('descripcion_calbas', 'Descripción', d.descripcion_calbas, 'maxlength="140" placeholder="Ej. Termómetro de punzón para cámara fría"')}
       ${seccion('ruler', 'Características de medición')}
       <div class="field"><label for="f-unidad">Unidad <span class="req">*</span></label><select id="f-unidad" name="unidad_calbas" required data-unidad>${tipo.unidades_calbas.map((u) => `<option value="${esc(u)}" ${d.unidad_calbas === u ? 'selected' : ''}>${esc(U(u))}</option>`).join('')}</select></div>
       ${num('resolucion_calbas', 'Resolución', d.resolucion_calbas, false, 'min="0" placeholder="Ej. 0.1"', 'El valor más pequeño que el equipo puede mostrar (su último dígito). Si marca 4.5 °C es 0.1; si marca 7.01 pH es 0.01.', tipo.unidades_calbas[0])}
@@ -337,7 +336,7 @@ async function formGenerico(d, tipo, deptos) {
       const v = formValues(form);
       const row = {
         tipo_id_calbas: tipo.id_calbas, departamento_id_calbas: v.departamento_id_calbas,
-        descripcion_calbas: nullIfEmpty(v.descripcion_calbas), ubicacion_calbas: nullIfEmpty(v.ubicacion_calbas), marca_calbas: nullIfEmpty(v.marca_calbas),
+        ubicacion_calbas: nullIfEmpty(v.ubicacion_calbas), marca_calbas: nullIfEmpty(v.marca_calbas),
         modelo_calbas: nullIfEmpty(v.modelo_calbas), numero_serie_calbas: nullIfEmpty(v.numero_serie_calbas), unidad_calbas: v.unidad_calbas,
         rango_min_calbas: n(v.rango_min_calbas), rango_max_calbas: n(v.rango_max_calbas), resolucion_calbas: n(v.resolucion_calbas),
         tolerancia_calbas: n(v.tolerancia_calbas), tolerancia_tipo_calbas: v.tolerancia_tipo_calbas,

@@ -10,6 +10,7 @@
 import {
   sb, esc, icon, refreshIcons, toast, errMsg, must, checkForm, pill, fmtDate, fmtVal, fmtSigned, todayISO,
   aGramos, factorEMT, estadistica, U, convertirMasa, CLASES, CRITERIOS, tipoIcono, navigate, dictamenPill, emptyState,
+  avisar,
 } from '../core.js';
 import { cargarEquipos } from './equipos.js';
 
@@ -319,7 +320,7 @@ async function guardar(ev) {
         lectura_1_calbas: l[0], lectura_2_calbas: l[1], lectura_3_calbas: l[2], promedio_lecturas_calbas: prom, peso_real_calbas: prom,
         unidad_calbas: ctx.b.unidad_calbas, fecha_calbas: f.fecha.value, observaciones_calbas: f.obs.value.trim() || null,
       }).select('id_calbas, dictamen_calbas, error_indicacion_calbas, emt_permitido_calbas').single()).data;
-      if (r.dictamen_calbas === 'NO_CUMPLE') sb.functions.invoke('alerta_inmediata_calbas', { body: { verification_id_calbas: r.id_calbas } }).catch(() => {});
+      if (r.dictamen_calbas === 'NO_CUMPLE') avisar({ accion: 'no_cumple', origen: 'bascula', id: r.id_calbas });
     } else {
       const g = leerGenerico();
       const row = { equipo_id_calbas: eq.id_calbas, departamento_id_calbas: eq.departamento_id_calbas, patron_id_calbas: f.patron.value,
@@ -333,10 +334,11 @@ async function guardar(ev) {
           correccion_calbas: g.ajuste ? g.cor : null, lecturas_post_calbas: g.ajuste ? g.post : null });
       }
       r = must(await sb.from('verificaciones_equipo_calbas').insert(row).select('id_calbas, dictamen_calbas, dictamen_final_calbas').single()).data;
+      if (r.dictamen_calbas === 'NO_CUMPLE' && r.dictamen_final_calbas !== 'CUMPLE') avisar({ accion: 'no_cumple', origen: 'equipo', id: r.id_calbas });
     }
     const ok = r.dictamen_calbas === 'CUMPLE', fin = r.dictamen_final_calbas;
     const okFinal = fin ? fin === 'CUMPLE' : ok;
-    toast(okFinal ? `Verificación registrada: ${eq.codigo_calbas} ${fin && !ok ? 'cumple después del ajuste' : 'cumple'}.` : `Verificación registrada: ${eq.codigo_calbas} NO CUMPLE. Retira el equipo de uso y notifica a Calidad.`, okFinal ? 'success' : 'error', 8000);
+    toast(okFinal ? `Verificación registrada: ${eq.codigo_calbas} ${fin && !ok ? 'cumple después del ajuste' : 'cumple'}.` : `Verificación registrada: ${eq.codigo_calbas} NO CUMPLE. Retira el equipo de uso; se avisó a los administradores.`, okFinal ? 'success' : 'error', 8000);
     resultado(okFinal, fin && !ok);
   } catch (err) {
     toast(errMsg(err), 'error');
@@ -351,7 +353,7 @@ function resultado(ok, ajustado = false) {
     <p>${esc(eq.codigo_calbas)} · ${esc(eq.tipo_nombre_calbas)} — ${ok ? (ajustado ? 'se registró la lectura como se encontró y como se dejó; puede seguir en uso.' : 'puede seguir en uso hasta su próxima verificación.') : 'identifícalo como “fuera de uso” y solicita ajuste o calibración.'}</p>
     <div class="page-actions center">
       ${ok ? '' : `<button class="btn red" data-go="#/historial?seguimiento=pendiente">${icon('wrench')} Registrar acción correctiva</button>`}
-      <button class="btn primary" data-go="#/verificar">${icon('clipboard-plus')} Registrar otra</button>
+      <button class="btn navy" data-go="#/verificar">${icon('clipboard-plus')} Registrar otra</button>
       <button class="btn secondary" data-go="#/historial">${icon('history')} Ver historial</button>
     </div></div>`;
   root.querySelector('.result-card').addEventListener('click', (e) => {

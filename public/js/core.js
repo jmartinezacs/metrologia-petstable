@@ -137,7 +137,7 @@ export function openModal({ title, subtitle = '', body = '', submitText = 'Guard
           ${onSubmit
             ? `<div class="form-error" role="alert"></div>
                <button type="button" class="btn secondary" data-close>Cancelar</button>
-               <button type="submit" class="btn ${danger ? 'danger' : 'primary'}" data-submit>${esc(submitText)}</button>`
+               <button type="submit" class="btn ${danger ? 'danger' : 'navy'}" data-submit>${esc(submitText)}</button>`
             : `<button type="button" class="btn secondary" data-close>Cerrar</button>`}
         </footer>
       </form>`;
@@ -820,4 +820,72 @@ export const METODOS = {
   PUNTO_UNICO: ['Un punto con corrección', 'Patrón vs lectura del equipo; si hay desviación se registra la corrección y la lectura final (termómetros).'],
   MULTIPUNTO: ['Varios puntos (buffers)', 'Una lectura por punto de referencia y, si hay ajuste, las lecturas después del ajuste (potenciómetros).'],
   SOLO_CALIBRACION: ['Solo calibración', 'Sin verificación interna; únicamente calibraciones externas (micropipetas).'],
+};
+
+// ---------------- Avisos push (mismo esquema que Pruebas industriales) ----------------
+// La Edge Function recordatorios_calbas envía cada mañana los equipos por verificar
+// (a quienes verifican) y las calibraciones y verificaciones atrasadas (a los administradores).
+function b64uToUint8(s) {
+  const pad = '='.repeat((4 - (s.length % 4)) % 4);
+  const raw = atob((s + pad).replace(/-/g, '+').replace(/_/g, '/'));
+  return Uint8Array.from(raw, (c) => c.charCodeAt(0));
+}
+export function avisar(body) {
+  try { sb.functions.invoke('recordatorios_calbas', { body }).catch(() => {}); } catch { /* sin conexión */ }
+}
+export const push = {
+  soportado: () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window && window.isSecureContext,
+  esIOS: () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1),
+  instalada: () => window.matchMedia('(display-mode: standalone), (display-mode: fullscreen), (display-mode: window-controls-overlay)').matches || window.navigator.standalone === true,
+  async suscripcion() {
+    if (!push.soportado()) return null;
+    const reg = await navigator.serviceWorker.getRegistration('/');
+    return reg ? reg.pushManager.getSubscription() : null;
+  },
+  // 'no-soportado' | 'instalar' (iOS sin instalar) | 'bloqueado' | 'activo' | 'inactivo'
+  async estado() {
+    if (push.esIOS() && !push.instalada()) return 'instalar';
+    if (!push.soportado()) return 'no-soportado';
+    if (Notification.permission === 'denied') return 'bloqueado';
+    return (await push.suscripcion()) && Notification.permission === 'granted' ? 'activo' : 'inactivo';
+  },
+  async guardar(sub) {
+    const j = sub.toJSON();
+    const { error } = await sb.rpc('calbas_vincular_push', {
+      p_endpoint: j.endpoint, p_p256dh: j.keys.p256dh, p_auth: j.keys.auth, p_dispositivo: navigator.userAgent.slice(0, 200),
+    });
+    if (error) throw error;
+  },
+  async activar() {
+    if (!push.soportado()) throw new Error('Este navegador no admite notificaciones.');
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') throw new Error('No se concedió el permiso de notificaciones.');
+    const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+    await navigator.serviceWorker.ready;
+    let { data: pub } = await sb.rpc('calbas_vapid_publica');
+    if (!pub) pub = (await sb.functions.invoke('recordatorios_calbas', { body: { accion: 'init' } })).data?.publica;
+    if (!pub) throw new Error('No se pudo obtener la clave de notificaciones. Intenta más tarde.');
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64uToUint8(pub) });
+    await push.guardar(sub);
+  },
+  async desactivar() {
+    const sub = await push.suscripcion();
+    if (sub) {
+      await sb.from('push_subs_calbas').delete().eq('endpoint_calbas', sub.endpoint);
+      await sub.unsubscribe().catch(() => {});
+    }
+  },
+  // Al cerrar sesión el dispositivo deja de recibir avisos de esa persona (conserva el permiso)
+  async desvincular() {
+    try { const sub = await push.suscripcion(); if (sub) await sb.from('push_subs_calbas').delete().eq('endpoint_calbas', sub.endpoint); } catch { /* silencioso */ }
+  },
+  // Al iniciar sesión: si el dispositivo ya dio permiso, vincula la suscripción sin preguntar
+  async sincronizar() {
+    try {
+      if (!push.soportado() || Notification.permission !== 'granted') return;
+      const sub = await push.suscripcion();
+      if (sub) await push.guardar(sub); else await push.activar();
+    } catch { /* silencioso */ }
+  },
 };

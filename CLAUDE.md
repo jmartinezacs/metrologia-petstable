@@ -35,7 +35,12 @@ Guía para Claude Code al trabajar en este repositorio.
 
 Sirve una build `-Prueba` con `tools\serve.ps1 -Root <carpeta>`. Luego sustituye `sb.from`/`sb.rpc` por datos simulados (inyecta un `<script src>` del mismo origen, porque la CSP bloquea `eval`) y dispara `sb.auth._notifyAllSubscribers('SIGNED_IN', session)`. No escribas contraseñas reales.
 
-## Pendientes conocidos (no resueltos en v7.0)
+## Avisos push (v7.6)
 
-- `alerta_inmediata_calbas` usa columnas antiguas (`desviacion_pct_calbas`, `tolerancia_pct_aplicada_calbas`). El frontend la invoca tras un «no cumple» de báscula, pero el correo probablemente falla.
-- No hay alertas por correo para equipos genéricos ni hay un cron de resumen diario.
+- Mismo esquema que Pruebas industriales: `push_subs_calbas`, claves VAPID en `calbas_private.config_push_calbas` y secreto del cron en `calbas_private.cron_calbas`. `avisos_calbas` registra lo enviado (un aviso por persona, tipo y día).
+- La Edge Function `recordatorios_calbas` (`verify_jwt` false; fuente en `supabase/functions/`) la llama pg_cron `calbas_recordatorio_pendientes` de lunes a sábado a las 08:00 de CDMX. Según `calbas_pendientes_recordatorio()`: equipos por verificar → quienes verifican (no administradores); verificaciones con 3 días o más de atraso y calibraciones → administradores. También atiende `init`, `prueba` y `no_cumple` (aviso inmediato a los administradores) para usuarios con sesión.
+- No dispares el cron a mano en horario de producción: insertaría los avisos del día y el envío de las 08:00 los omitiría.
+
+## Pendientes conocidos
+
+- `alerta_inmediata_calbas` (columnas antiguas) ya no se usa: el «no cumple» avisa por push con `recordatorios_calbas`. No hay avisos por correo.
