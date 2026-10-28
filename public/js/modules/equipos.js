@@ -296,7 +296,7 @@ async function formBascula(d, deptos) {
     body: `${banner(TIPO_BASCULA, editar, d.codigo_calbas)}<div class="form-grid pro-form">${comunes(d, deptos, '', siguienteCodigo('BAS', 3))}
       ${seccion('ruler', 'Parámetros metrológicos', 'Datos de la placa del equipo o de su certificado de calibración.')}
       <div class="field"><label for="f-tipob">Tipo de báscula <span class="req">*</span></label><select id="f-tipob" name="tipo_bascula_calbas" required>${Object.entries(TIPOS_BASCULA).map(([k, v]) => `<option value="${k}" ${d.tipo_bascula_calbas === k ? 'selected' : ''}>${v}</option>`).join('')}</select>
-        <small class="hint">Plataforma: 0.4 – 200 Kg · Mesa: 0.1 – 15 Kg · Laboratorio: en gramos. Se sugiere según la unidad y la capacidad máxima.</small></div>
+        <small class="hint">Plataforma: 0.4 – 200 Kg · Mesa: 0.1 – 15 Kg · Analítica: en gramos. Se sugiere según la unidad y la capacidad máxima.</small></div>
       <div class="field"><label for="f-unidad">Unidad de la báscula <span class="req">*</span></label><select id="f-unidad" name="unidad_calbas" required data-unidad>${['kg', 'g'].map((u) => `<option value="${u}" ${d.unidad_calbas === u ? 'selected' : ''}>${U(u)}</option>`).join('')}</select></div>
       <div class="field"><label for="f-clase">Clase de exactitud <span class="req">*</span></label><select id="f-clase" name="clase_exactitud_calbas" required>${Object.entries(CLASES).map(([k, v]) => `<option value="${k}" ${(d.clase_exactitud_calbas || 'CLASE_III') === k ? 'selected' : ''}>${v}</option>`).join('')}</select></div>
       ${num('capacidad_minima_calbas', 'Capacidad mínima (Min)', d.capacidad_minima_calbas, true, 'min="0"', 'Carga más pequeña que la báscula pesa con exactitud.', 'Kg')}
