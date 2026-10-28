@@ -742,7 +742,10 @@ export async function getDepartamentos({ force = false } = {}) {
   return deptosCache;
 }
 // Tipos de equipo genéricos (las básculas se agregan como tipo especial BASCULA)
-export const TIPO_BASCULA = { id_calbas: 'BASCULA', clave_calbas: 'BASCULA', nombre_calbas: 'Báscula / balanza', magnitud_calbas: 'Masa', unidades_calbas: ['kg', 'g'], icono_calbas: 'scale', prefijo_codigo_calbas: 'BAS' };
+export const TIPO_BASCULA = { id_calbas: 'BASCULA', clave_calbas: 'BASCULA', nombre_calbas: 'Báscula', magnitud_calbas: 'Masa', unidades_calbas: ['kg', 'g'], icono_calbas: 'scale', prefijo_codigo_calbas: 'BAS' };
+// Clase de báscula (basculas_calbas.tipo_bascula_calbas): plataforma 0.4–200 kg, mesa 0.1–15 kg, laboratorio en gramos
+export const TIPOS_BASCULA = { PLATAFORMA: 'Báscula de plataforma', MESA: 'Báscula de mesa', LABORATORIO: 'Báscula de laboratorio' };
+export const tipoBasculaSugerido = (unidad, max) => (unidad === 'g' ? 'LABORATORIO' : Number(max) > 30 ? 'PLATAFORMA' : 'MESA');
 export async function getTipos({ force = false, conBascula = true } = {}) {
   if (!tiposCache || force) {
     const { data } = must(await sb.from('tipos_equipo_calbas').select('*').order('nombre_calbas'));

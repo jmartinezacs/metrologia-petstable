@@ -23,7 +23,7 @@ Guía para Claude Code al trabajar en este repositorio.
 
 - Otros sistemas comparten el proyecto (`_med`, `_prubind`, `brom_`, auditorías, EPP). **Solo toca objetos con sufijo `_calbas`**, el esquema `calbas_private` y las funciones `*_calbas`.
 - Las migraciones van en `supabase/migrations/` (archivo nuevo con fecha) y se aplican con `apply_migration`. Cada una debe tener su reversión en `supabase/migrations/rollback/`.
-- **Básculas (v6.x, sin cambios):** `basculas_calbas`, `pesas_patron_calbas`, `verificaciones_calbas` y `calibraciones_calbas`. Las fórmulas de EMT viven en `validar_verificacion_calbas` y `calbas_private.factor_emt_calbas`. No las alteres sin una revisión técnica.
+- **Básculas:** `basculas_calbas`, `pesas_patron_calbas`, `verificaciones_calbas` y `calibraciones_calbas`. Desde v7.7: `tipo_bascula_calbas` (PLATAFORMA 0.4–200 kg, MESA 0.1–15 kg, LABORATORIO en gramos; se calcula si no se indica) y código automático `BAS-001` (trigger `calbas_private.preparar_bascula_calbas`, secuencia `seq_basculas_calbas`; reiníciala después de pruebas). Las fórmulas de EMT viven en `validar_verificacion_calbas` y `calbas_private.factor_emt_calbas`. No las alteres sin una revisión técnica.
 - **Equipos genéricos (v7):** `tipos_equipo_calbas` (con `metodo_calbas`: PUNTO_UNICO termómetros, MULTIPUNTO potenciómetros con `puntos_referencia_calbas`, SOLO_CALIBRACION micropipetas), `equipos_calbas`, `patrones_calbas`, `verificaciones_equipo_calbas` y `calibraciones_equipo_calbas`. El dictamen («como se encontró») y, si hubo ajuste o corrección, el `dictamen_final_calbas` («como se dejó») los calcula `validar_verificacion_equipo_calbas`. Un «no cumple» con `dictamen_final_calbas = CUMPLE` no queda pendiente de seguimiento. Una verificación nunca se edita: solo se anula, con motivo.
 - **Vistas unificadas** (`security_invoker`): `vw_equipos_calbas` (inventario con estados), `vw_verificaciones_todas_calbas` y `vw_calibraciones_todas_calbas`. Cada una une básculas y equipos genéricos por medio de `origen_calbas` (`bascula` o `equipo`).
 - **RLS:** usuario activo con departamento asignado para ver y verificar (o con `perfiles_calbas.verifica_todas_calbas`, que tienen los Inspectores de calidad: todas las áreas); administrador para todo lo demás. Por indicación de la administración, solo inspectores de calidad, la Jefa de Calidad y administradores tienen acceso activo. Funciones auxiliares: `calbas_private.activo_calbas()`, `es_admin_calbas()`, `es_usuario_calbas()` y `tiene_departamento_calbas()`.
@@ -34,6 +34,11 @@ Guía para Claude Code al trabajar en este repositorio.
 ## Pruebas de interfaz sin credenciales
 
 Sirve una build `-Prueba` con `tools\serve.ps1 -Root <carpeta>`. Luego sustituye `sb.from`/`sb.rpc` por datos simulados (inyecta un `<script src>` del mismo origen, porque la CSP bloquea `eval`) y dispara `sb.auth._notifyAllSubscribers('SIGNED_IN', session)`. No escribas contraseñas reales.
+
+## Etiquetas (v7.7)
+
+- `public/js/modules/etiquetas.js` genera el PDF tamaño carta con jsPDF 2.5.1 (se carga al generar) y el formato de la hoja «Etiquetas para equipos de medición»: básculas 72.6 × 22.2 mm (18 por hoja), demás 39.7 × 22.2 mm (36 por hoja). Las medidas salen de los píxeles de la hoja a 96 ppp; no las cambies sin una indicación.
+- «Etiqueta dañada» en la verificación (`etiqueta_danada_calbas`) crea por trigger un pendiente en `etiquetas_danadas_calbas` (vista `vw_etiquetas_danadas_calbas`, solo administradores) y avisa por push (`recordatorios_calbas`, acción `etiqueta`). Se cierra desde el Panel con «Reemplazada».
 
 ## Avisos push (v7.6)
 

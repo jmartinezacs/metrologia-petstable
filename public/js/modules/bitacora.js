@@ -21,7 +21,7 @@ const CAMPOS = {
   factor_emt: 'Factor EMT', divisiones_carga: 'Divisiones de carga', unidad_calculo: 'Unidad de cálculo', pesa_patron_valor: 'Valor de la pesa',
   clase_exactitud_aplicada: 'Clase aplicada', criterio_evaluacion_aplicado: 'Criterio aplicado', clase_exactitud: 'Clase de exactitud',
   criterio_evaluacion: 'Criterio de evaluación', motivo_anulacion: 'Motivo de anulación', motivo_cambio: 'Motivo del cambio',
-  valor_referencia: 'Valor de referencia', cv_pct: 'CV %', descripcion: 'Descripción', ubicacion: 'Ubicación', marca: 'Marca', modelo: 'Modelo',
+  valor_referencia: 'Valor de referencia', cv_pct: 'CV %', descripcion: 'Descripción', tipo_bascula: 'Tipo de báscula', etiqueta_danada: 'Etiqueta dañada', ubicacion: 'Ubicación', marca: 'Marca', modelo: 'Modelo',
   numero_serie: 'Número de serie', capacidad_maxima: 'Capacidad máxima', capacidad_minima: 'Capacidad mínima', division_minima: 'División mínima (d)',
   division_verificacion_e: 'División de verificación (e)', frecuencia_dias: 'Verificar cada (días)', activa: 'Activa', activo: 'Activo',
   valor_nominal: 'Valor nominal', fecha_calibracion: 'Fecha de calibración', fecha_vencimiento: 'Vencimiento', numero_certificado: 'Certificado',

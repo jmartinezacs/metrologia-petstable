@@ -9,7 +9,9 @@ import {
   DataTable, emptyState, pill, fmtDate, fmtVal, fmtSigned, calPill, verPill, dictamenPill, getDepartamentos, getTipos,
   invalidarCatalogos, tipoIcono, CLASES, CRITERIOS, ganchos, navigate, sanitizeSearch, debounce, prefs, abrirCertificado,
   U, convertirMasa, TIPO_BASCULA, METODOS, dictamenConAjuste,
+  TIPOS_BASCULA, tipoBasculaSugerido, errMsg,
 } from '../core.js';
+import { dialogoEtiquetas, etiquetaIndividual } from './etiquetas.js';
 
 let root, table, todos = [];
 
@@ -28,7 +30,8 @@ export default {
         <div><span class="eyebrow">Inventario metrológico</span><h1>Equipos</h1>
           <p>Básculas, termómetros, potenciómetros, micropipetas y demás instrumentos con su estado de verificación y calibración.</p></div>
         <div class="page-actions">
-          ${state.isAdmin ? `<button class="btn outline" data-eq="tipos">${icon('settings-2')} Tipos de equipo</button>
+          ${state.isAdmin ? `<button class="btn teal" data-eq="etiquetas">${icon('tag')} Etiquetas</button>
+          <button class="btn outline" data-eq="tipos">${icon('settings-2')} Tipos de equipo</button>
           <button class="btn primary" data-eq="nuevo">${icon('plus')} Nuevo equipo</button>` : ''}
         </div>
       </section>
@@ -61,7 +64,9 @@ export default {
         { label: '', cls: 'actions', render: (e) => `<div class="row-actions">
             <button class="icon-btn" data-ficha="${e.id_calbas}" title="Ficha del equipo" aria-label="Ficha del equipo">${icon('file-text')}</button>
             ${e.activo_calbas && e.requiere_verificacion_calbas === false ? '' : e.activo_calbas ? `<button class="icon-btn" data-verif="${e.id_calbas}" data-origen="${e.origen_calbas}" title="Registrar verificación" aria-label="Registrar verificación">${icon('clipboard-plus')}</button>` : pill('Inactivo', 'gray')}
-            ${state.isAdmin ? `<button class="icon-btn" data-editar="${e.id_calbas}" title="Editar" aria-label="Editar">${icon('pencil')}</button>` : ''}</div>` },
+            ${state.isAdmin ? `<button class="icon-btn" data-etq="${e.id_calbas}" title="Etiqueta (PDF)" aria-label="Etiqueta en PDF">${icon('tag')}</button>
+            <button class="icon-btn" data-editar="${e.id_calbas}" title="Editar" aria-label="Editar">${icon('pencil')}</button>
+            <button class="icon-btn ${e.activo_calbas ? 'danger-hover' : 'ok-hover'}" data-activo="${e.id_calbas}" title="${e.activo_calbas ? 'Inactivar' : 'Activar'}" aria-label="${e.activo_calbas ? 'Inactivar equipo' : 'Activar equipo'}">${icon(e.activo_calbas ? 'power-off' : 'power')}</button>` : ''}</div>` },
       ],
       empty: { ico: 'gauge', title: 'Sin equipos registrados', text: state.isAdmin ? 'Registra tu primer equipo con el botón “Nuevo equipo”.' : 'No hay equipos asignados a tus departamentos.' },
       fetch: async ({ from, to, filters: f }) => {
@@ -117,7 +122,7 @@ function pintarTipos() {
         ${alerta ? `<span class="tk-state bad" title="Calibración vencida o último dictamen no cumple">${icon('triangle-alert')} ${alerta} con alerta</span>` : `<span class="tk-state ok">${icon('circle-check')} Al día</span>`}</span>
       <span class="tk-check">${icon('check')}</span></button>`;
   strip.innerHTML = chip('', 'layers', '', activos.length, 'Todos los equipos', alertasTot)
-    + Object.entries(grupos).map(([k, g]) => chip(k, g.ico, `t-${k.toLowerCase()}`, g.n, g.nombre === 'Báscula' ? 'Básculas' : g.nombre, g.alerta)).join('');
+    + Object.entries(grupos).map(([k, g]) => chip(k, g.ico, `t-${k.toLowerCase()}`, g.n, k === 'BASCULA' ? 'Básculas' : g.nombre, g.alerta)).join('');
   refreshIcons();
 }
 
@@ -129,13 +134,34 @@ async function onClick(e) {
     root.querySelector('#eq-tipo').dispatchEvent(new Event('change'));
     pintarTipos(); return;
   }
-  const b = t.closest('[data-eq],[data-ficha],[data-verif],[data-editar]');
+  const b = t.closest('[data-eq],[data-ficha],[data-verif],[data-editar],[data-etq],[data-activo]');
   if (!b) return;
   if (b.dataset.eq === 'nuevo') { if (await abrirFormEquipo()) await recargar(); return; }
+  if (b.dataset.eq === 'etiquetas') { await dialogoEtiquetas(todos); return; }
+  if (b.dataset.etq) { etiquetaIndividual(todos.find((x) => x.id_calbas === b.dataset.etq)); return; }
+  if (b.dataset.activo) { if (await cambiarActivo(todos.find((x) => x.id_calbas === b.dataset.activo))) await recargar(); return; }
   if (b.dataset.eq === 'tipos') { await gestionarTipos(); return; }
   if (b.dataset.ficha) { abrirFicha(b.dataset.ficha); return; }
   if (b.dataset.verif) { navigate(`#/verificar?equipo=${b.dataset.verif}`); return; }
   if (b.dataset.editar) { const eq = todos.find((x) => x.id_calbas === b.dataset.editar); if (await abrirFormEquipo(eq)) await recargar(); }
+}
+
+// Activar / inactivar (los inactivos no se verifican ni generan avisos, pero conservan su historial)
+async function cambiarActivo(e) {
+  if (!e) return false;
+  const activar = !e.activo_calbas;
+  const ok = await confirmDialog({
+    title: `${activar ? 'Activar' : 'Inactivar'} ${e.codigo_calbas}`,
+    message: activar ? 'El equipo volverá a aparecer para verificar y en los avisos.' : 'El equipo dejará de aparecer para verificar y en los avisos. Su historial se conserva y puedes activarlo de nuevo cuando quieras.',
+    confirmText: activar ? 'Activar' : 'Inactivar', danger: !activar,
+  });
+  if (!ok) return false;
+  try {
+    if (e.origen_calbas === 'bascula') must(await sb.from('basculas_calbas').update({ activa_calbas: activar }).eq('id_calbas', e.id_calbas));
+    else must(await sb.from('equipos_calbas').update({ activo_calbas: activar }).eq('id_calbas', e.id_calbas));
+    toast(`${e.codigo_calbas} ${activar ? 'activado' : 'inactivado'}.`, 'success');
+    return true;
+  } catch (err) { toast(errMsg(err), 'error'); return false; }
 }
 
 // ---------------- Ficha técnica ----------------
@@ -177,6 +203,8 @@ async function abrirFicha(id) {
         <div class="fh-actions">
           ${e.activo_calbas && e.requiere_verificacion_calbas !== false ? `<button type="button" class="btn orange sm" data-go="#/verificar?equipo=${e.id_calbas}">${icon('clipboard-plus')} Verificar</button>` : ''}
           <button type="button" class="btn teal sm" data-go="#/historial?equipo=${e.id_calbas}">${icon('history')} Historial</button>
+          ${state.isAdmin ? `<button type="button" class="btn outline sm" data-fetq>${icon('tag')} Etiqueta</button>
+          <button type="button" class="btn secondary sm" data-factivo>${icon(e.activo_calbas ? 'power-off' : 'power')} ${e.activo_calbas ? 'Inactivar' : 'Activar'}</button>` : ''}
         </div>
       </div>
       <div class="ficha-stats">
@@ -203,6 +231,8 @@ async function abrirFicha(id) {
       wrap.addEventListener('click', (ev) => {
         const c = ev.target.closest('[data-cert]'); if (c) abrirCertificado(c.dataset.cert);
         const g = ev.target.closest('[data-go]'); if (g) { close(); navigate(g.dataset.go); }
+        if (ev.target.closest('[data-fetq]')) etiquetaIndividual(e);
+        if (ev.target.closest('[data-factivo]')) { close(); cambiarActivo(e).then((ok) => { if (ok && root) recargar(); }); }
       });
     },
   });
@@ -240,10 +270,10 @@ const seccion = (ico, titulo, sub = '') => `<div class="form-section full"><span
 const banner = (tipo, editar, codigo) => `<div class="form-banner"><span class="eq-ico lg t-${esc(tipo.clave_calbas.toLowerCase())}">${icon(tipoIcono(tipo.clave_calbas, tipo.icono_calbas))}</span>
   <div><b>${editar ? `Editando ${esc(codigo)}` : `Alta de equipo: ${esc(tipo.nombre_calbas)}`}</b><span>${esc(tipo.magnitud_calbas)} · unidades ${esc(tipo.unidades_calbas.map(U).join(', '))}</span></div></div>`;
 // Próximo código automático (vista previa; la base de datos asigna el definitivo)
-function siguienteCodigo(pref) {
+function siguienteCodigo(pref, digitos = 2) {
   const re = new RegExp(`^${pref}-(\\d+)$`);
   const nums = todos.map((e) => re.exec(e.codigo_calbas)?.[1]).filter(Boolean).map(Number);
-  return `${pref}-${String((nums.length ? Math.max(...nums) : 0) + 1).padStart(2, '0')}`;
+  return `${pref}-${String((nums.length ? Math.max(...nums) : 0) + 1).padStart(digitos, '0')}`;
 }
 const comunes = (d, deptos, ejemplo, auto = null) => `
   ${seccion('id-card', 'Identificación', 'Código único con el que se etiqueta físicamente el equipo.')}
@@ -261,10 +291,12 @@ const n = (v) => (v === '' || v == null ? null : Number(v));
 async function formBascula(d, deptos) {
   const editar = !!d.id_calbas;
   return openModal({
-    title: editar ? `Editar báscula ${d.codigo_calbas}` : 'Nueva báscula / balanza',
+    title: editar ? `Editar báscula ${d.codigo_calbas}` : 'Nueva báscula',
     subtitle: 'Parámetros metrológicos usados para calcular el EMT (error máximo tolerado).', size: 'lg',
-    body: `${banner(TIPO_BASCULA, editar, d.codigo_calbas)}<div class="form-grid pro-form">${comunes(d, deptos, 'Ej. PRD-006')}
+    body: `${banner(TIPO_BASCULA, editar, d.codigo_calbas)}<div class="form-grid pro-form">${comunes(d, deptos, '', siguienteCodigo('BAS', 3))}
       ${seccion('ruler', 'Parámetros metrológicos', 'Datos de la placa del equipo o de su certificado de calibración.')}
+      <div class="field"><label for="f-tipob">Tipo de báscula <span class="req">*</span></label><select id="f-tipob" name="tipo_bascula_calbas" required>${Object.entries(TIPOS_BASCULA).map(([k, v]) => `<option value="${k}" ${d.tipo_bascula_calbas === k ? 'selected' : ''}>${v}</option>`).join('')}</select>
+        <small class="hint">Plataforma: 0.4 – 200 Kg · Mesa: 0.1 – 15 Kg · Laboratorio: en gramos. Se sugiere según la unidad y la capacidad máxima.</small></div>
       <div class="field"><label for="f-unidad">Unidad de la báscula <span class="req">*</span></label><select id="f-unidad" name="unidad_calbas" required data-unidad>${['kg', 'g'].map((u) => `<option value="${u}" ${d.unidad_calbas === u ? 'selected' : ''}>${U(u)}</option>`).join('')}</select></div>
       <div class="field"><label for="f-clase">Clase de exactitud <span class="req">*</span></label><select id="f-clase" name="clase_exactitud_calbas" required>${Object.entries(CLASES).map(([k, v]) => `<option value="${k}" ${(d.clase_exactitud_calbas || 'CLASE_III') === k ? 'selected' : ''}>${v}</option>`).join('')}</select></div>
       ${num('capacidad_minima_calbas', 'Capacidad mínima (Min)', d.capacidad_minima_calbas, true, 'min="0"', 'Carga más pequeña que la báscula pesa con exactitud.', 'Kg')}
@@ -276,9 +308,14 @@ async function formBascula(d, deptos) {
       ${num('frecuencia_dias_calbas', 'Verificar cada', d.frecuencia_dias_calbas ?? 7, true, 'min="1" step="1"', '1 = diario, 7 = semanal.', 'días')}
       ${activoSwitch(d.activa_calbas)}</div>`,
     onOpen: ({ form }) => {
-      const sel = form.elements.unidad_calbas;
+      const sel = form.elements.unidad_calbas, max = form.elements.capacidad_maxima_calbas, tb = form.elements.tipo_bascula_calbas;
       const pintar = () => form.querySelectorAll('[data-sfx]').forEach((s) => { if (s.textContent !== 'días') s.textContent = U(sel.value); });
-      sel.addEventListener('change', pintar); pintar();
+      // Sugiere el tipo mientras la persona no lo elija a mano
+      let manual = !!d.tipo_bascula_calbas;
+      const sugerir = () => { if (!manual && max.value !== '') tb.value = tipoBasculaSugerido(sel.value, max.value); };
+      tb.addEventListener('change', () => { manual = true; });
+      sel.addEventListener('change', () => { pintar(); sugerir(); }); max.addEventListener('input', sugerir); pintar();
+      if (!d.tipo_bascula_calbas) tb.value = tipoBasculaSugerido(sel.value || 'kg', max.value || 200);
     },
     onSubmit: async ({ form }) => {
       if (!checkForm(form, {
@@ -289,7 +326,7 @@ async function formBascula(d, deptos) {
       })) return false;
       const v = formValues(form);
       const row = {
-        codigo_calbas: v.codigo_calbas.toUpperCase(), departamento_id_calbas: v.departamento_id_calbas, ubicacion_calbas: nullIfEmpty(v.ubicacion_calbas),
+        tipo_bascula_calbas: v.tipo_bascula_calbas, departamento_id_calbas: v.departamento_id_calbas, ubicacion_calbas: nullIfEmpty(v.ubicacion_calbas),
         marca_calbas: nullIfEmpty(v.marca_calbas), modelo_calbas: nullIfEmpty(v.modelo_calbas), numero_serie_calbas: nullIfEmpty(v.numero_serie_calbas),
         unidad_calbas: v.unidad_calbas, clase_exactitud_calbas: v.clase_exactitud_calbas, capacidad_maxima_calbas: n(v.capacidad_maxima_calbas),
         capacidad_minima_calbas: n(v.capacidad_minima_calbas), division_minima_calbas: n(v.division_minima_calbas),
@@ -297,8 +334,8 @@ async function formBascula(d, deptos) {
         frecuencia_dias_calbas: n(v.frecuencia_dias_calbas), activa_calbas: form.elements.activo.checked,
       };
       if (editar) must(await sb.from('basculas_calbas').update(row).eq('id_calbas', d.id_calbas));
-      else must(await sb.from('basculas_calbas').insert({ ...row, created_by_calbas: state.session.user.id }));
-      toast(editar ? 'Báscula actualizada.' : 'Báscula registrada.', 'success');
+      else { const { data } = must(await sb.from('basculas_calbas').insert({ ...row, codigo_calbas: '', created_by_calbas: state.session.user.id }).select('codigo_calbas').single()); toast(`Báscula registrada con el código ${data.codigo_calbas}.`, 'success'); return true; }
+      toast('Báscula actualizada.', 'success');
     },
   });
 }

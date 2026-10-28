@@ -9,6 +9,7 @@ import {
   push, prefs, toast, errMsg,
 } from '../core.js';
 import { cargarEquipos } from './equipos.js';
+import { etiquetaIndividual } from './etiquetas.js';
 
 let root, token = 0;
 
@@ -95,6 +96,7 @@ async function load() {
     refreshIcons();
     drawCharts(ver.data, activos, inicio);
     sugerirAvisos(body, t);
+    if (state.isAdmin) etiquetasDanadas(body, t, activos);
   } catch (err) {
     if (t !== token) return;
     console.error(err);
@@ -230,4 +232,35 @@ function atraso(e) {
   if (e.estado_verificacion_calbas !== 'vencida' || !e.proxima_verificacion_calbas) return '';
   const d = Math.round((new Date(`${todayISO()}T00:00:00`) - new Date(`${e.proxima_verificacion_calbas}T00:00:00`)) / 864e5);
   return d > 0 ? ` · <b class="${d >= 3 ? 'txt-bad' : ''}">${d} ${d === 1 ? 'día' : 'días'} de atraso</b>` : '';
+}
+
+// Etiquetas reportadas como dañadas en las verificaciones (solo administradores)
+async function etiquetasDanadas(body, t, equipos) {
+  const { data } = await sb.from('vw_etiquetas_danadas_calbas').select('*').is('reemplazada_at_calbas', null).order('created_at_calbas');
+  if (!data?.length || t !== token) return;
+  const card = document.createElement('div');
+  card.className = 'card mt etq-pendientes';
+  card.innerHTML = `${cardHead('Etiquetas por reemplazar', `${data.length} ${data.length === 1 ? 'etiqueta reportada' : 'etiquetas reportadas'} como dañada${data.length === 1 ? '' : 's'} en la verificación`)}
+    <div class="list">${data.map((x) => `<div class="list-item">
+      <span class="eq-ico sm t-${esc(String(x.tipo_clave_calbas).toLowerCase())}">${icon('tag')}</span>
+      <div class="li-main"><b>${esc(x.codigo_calbas)} · ${esc(x.tipo_nombre_calbas)}</b>
+        <span>${esc([x.departamento_calbas, x.ubicacion_calbas].filter(Boolean).join(' · '))} · reportó ${esc(x.reportada_por_nombre_calbas || '—')} el ${fmtDate(x.created_at_calbas)}</span></div>
+      <div class="btns"><button class="btn outline sm" data-etq-pdf="${x.id_calbas}">${icon('printer')} Imprimir</button>
+        <button class="btn green sm" data-etq-ok="${x.id_calbas}">${icon('check')} Reemplazada</button></div></div>`).join('')}</div>`;
+  const ref = body.querySelector('.grid.grid-main');
+  ref ? ref.before(card) : body.append(card);
+  refreshIcons();
+  card.addEventListener('click', async (ev) => {
+    const pdf = ev.target.closest('[data-etq-pdf]'), ok = ev.target.closest('[data-etq-ok]');
+    const x = data.find((r) => String(r.id_calbas) === (pdf || ok)?.dataset[pdf ? 'etqPdf' : 'etqOk']);
+    if (!x) return;
+    if (pdf) { etiquetaIndividual(equipos.find((e) => e.id_calbas === x.equipo_id_calbas) || x); return; }
+    ok.disabled = true;
+    try {
+      must(await sb.from('etiquetas_danadas_calbas').update({ reemplazada_at_calbas: new Date().toISOString(), reemplazada_por_calbas: state.session.user.id }).eq('id_calbas', x.id_calbas));
+      toast(`Etiqueta de ${x.codigo_calbas} marcada como reemplazada.`, 'success');
+      ok.closest('.list-item').remove();
+      if (!card.querySelector('.list-item')) card.remove();
+    } catch (err) { toast(errMsg(err), 'error'); ok.disabled = false; }
+  });
 }

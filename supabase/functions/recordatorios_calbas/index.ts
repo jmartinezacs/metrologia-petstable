@@ -7,6 +7,7 @@
 //  · accion 'prueba' (usuario activo): aviso de prueba a sus propios dispositivos.
 //  · accion 'no_cumple' (quien registró la verificación): aviso inmediato a los
 //    administradores; se valida en la base que el «no cumple» sea real y reciente.
+//  · accion 'etiqueta' (quien registró la verificación): etiqueta dañada → administradores.
 import webpush from 'npm:web-push@3.6.7';
 import { createClient } from 'npm:@supabase/supabase-js@2.45.4';
 
@@ -160,6 +161,32 @@ Deno.serve(async (req) => {
         });
         push += n;
         await admin.from('avisos_calbas').insert({ usuario_id_calbas: a.id_calbas, tipo_calbas: 'no_cumple', total_calbas: 1, detalle_calbas: v.equipo_codigo_calbas, enviados_calbas: n, referencia_calbas: ref });
+      }
+      return json(200, { ok: true, push });
+    }
+    // Etiqueta dañada reportada en la verificación: aviso a los administradores
+    if (body.accion === 'etiqueta') {
+      const origen = body.origen === 'bascula' ? 'bascula' : 'equipo';
+      const { data: x } = await admin.from('vw_etiquetas_danadas_calbas')
+        .select('id_calbas, codigo_calbas, tipo_nombre_calbas, ubicacion_calbas, created_at_calbas, verificacion_id_calbas')
+        .eq('origen_calbas', origen).eq('verificacion_id_calbas', String(body.id || '')).maybeSingle();
+      if (!x) return json(404, { error: 'Reporte no encontrado.' });
+      const { data: v } = await admin.from(origen === 'bascula' ? 'verificaciones_calbas' : 'verificaciones_equipo_calbas')
+        .select('supervisor_id_calbas').eq('id_calbas', x.verificacion_id_calbas).maybeSingle();
+      if (v?.supervisor_id_calbas !== uid || Date.now() - new Date(x.created_at_calbas).getTime() > 15 * 60 * 1000) return json(200, { ok: true, push: 0, motivo: 'Sin aviso' });
+      const ref = `etiqueta:${x.id_calbas}`;
+      const { count } = await admin.from('avisos_calbas').select('id_calbas', { count: 'exact', head: true }).eq('tipo_calbas', 'etiqueta').eq('referencia_calbas', ref);
+      if (count) return json(200, { ok: true, push: 0, motivo: 'Ya avisado' });
+      const { data: admins } = await admin.from('perfiles_calbas').select('id_calbas').eq('rol_calbas', 'admin').eq('activo_calbas', true);
+      let push = 0;
+      for (const a of admins || []) {
+        const n = await enviar(admin, a.id_calbas, {
+          title: `Reemplazar etiqueta: ${x.codigo_calbas}`,
+          body: corto(`${String(yo.nombre_completo_calbas).split(' ')[0]} reportó dañada la etiqueta de ${x.tipo_nombre_calbas} ${x.codigo_calbas}${x.ubicacion_calbas ? ` (${x.ubicacion_calbas})` : ''}. Imprime una nueva desde el Panel.`),
+          url: '/#/panel', tag: `calbas-etq-${x.id_calbas}`,
+        });
+        push += n;
+        await admin.from('avisos_calbas').insert({ usuario_id_calbas: a.id_calbas, tipo_calbas: 'etiqueta', total_calbas: 1, detalle_calbas: x.codigo_calbas, enviados_calbas: n, referencia_calbas: ref });
       }
       return json(200, { ok: true, push });
     }

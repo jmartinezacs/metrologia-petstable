@@ -135,6 +135,7 @@ function pieHTML() {
   return `<div class="form-grid mt">
       <div class="field"><label for="v-fecha">Fecha <span class="req">*</span></label><input id="v-fecha" name="fecha" type="date" value="${hoy}" max="${hoy}" required></div>
       <div class="field full"><label for="v-obs">Observaciones</label><textarea id="v-obs" name="obs" rows="2" maxlength="500" placeholder="Sin observaciones"></textarea></div>
+      <label class="switch-row full etq-switch"><span><b>${icon('tag')} Etiqueta dañada</b><small>Márcalo si la etiqueta de identificación está rota, ilegible o se desprendió. Se avisará a los administradores para reemplazarla.</small></span><input type="checkbox" name="etiqueta"></label>
     </div>
     <div class="form-actions"><button type="submit" class="btn primary lg" id="v-save">${icon('save')} Registrar verificación</button></div>`;
 }
@@ -318,13 +319,13 @@ async function guardar(ev) {
         bascula_id_calbas: eq.id_calbas, departamento_id_calbas: eq.departamento_id_calbas, pesa_patron_id_calbas: f.patron.value,
         pesa_patron_valor_calbas: pesa.valor_nominal_calbas,
         lectura_1_calbas: l[0], lectura_2_calbas: l[1], lectura_3_calbas: l[2], promedio_lecturas_calbas: prom, peso_real_calbas: prom,
-        unidad_calbas: ctx.b.unidad_calbas, fecha_calbas: f.fecha.value, observaciones_calbas: f.obs.value.trim() || null,
+        unidad_calbas: ctx.b.unidad_calbas, fecha_calbas: f.fecha.value, observaciones_calbas: f.obs.value.trim() || null, etiqueta_danada_calbas: f.etiqueta.checked,
       }).select('id_calbas, dictamen_calbas, error_indicacion_calbas, emt_permitido_calbas').single()).data;
       if (r.dictamen_calbas === 'NO_CUMPLE') avisar({ accion: 'no_cumple', origen: 'bascula', id: r.id_calbas });
     } else {
       const g = leerGenerico();
       const row = { equipo_id_calbas: eq.id_calbas, departamento_id_calbas: eq.departamento_id_calbas, patron_id_calbas: f.patron.value,
-        fecha_calbas: f.fecha.value, observaciones_calbas: f.obs.value.trim() || null, ajuste_realizado_calbas: g.ajuste };
+        fecha_calbas: f.fecha.value, observaciones_calbas: f.obs.value.trim() || null, ajuste_realizado_calbas: g.ajuste, etiqueta_danada_calbas: f.etiqueta.checked };
       if (ctx.metodo === 'MULTIPUNTO') {
         Object.assign(row, { referencias_calbas: g.refs, valor_referencia_calbas: g.refs[0], temperatura_calbas: f.temp.value === '' ? null : Number(f.temp.value),
           lectura_1_calbas: g.lect[0], lectura_2_calbas: g.lect[1] ?? null, lectura_3_calbas: g.lect[2] ?? null,
@@ -336,6 +337,7 @@ async function guardar(ev) {
       r = must(await sb.from('verificaciones_equipo_calbas').insert(row).select('id_calbas, dictamen_calbas, dictamen_final_calbas').single()).data;
       if (r.dictamen_calbas === 'NO_CUMPLE' && r.dictamen_final_calbas !== 'CUMPLE') avisar({ accion: 'no_cumple', origen: 'equipo', id: r.id_calbas });
     }
+    if (f.etiqueta.checked) avisar({ accion: 'etiqueta', origen: eq.origen_calbas === 'bascula' ? 'bascula' : 'equipo', id: r.id_calbas });
     const ok = r.dictamen_calbas === 'CUMPLE', fin = r.dictamen_final_calbas;
     const okFinal = fin ? fin === 'CUMPLE' : ok;
     toast(okFinal ? `Verificación registrada: ${eq.codigo_calbas} ${fin && !ok ? 'cumple después del ajuste' : 'cumple'}.` : `Verificación registrada: ${eq.codigo_calbas} NO CUMPLE. Retira el equipo de uso; se avisó a los administradores.`, okFinal ? 'success' : 'error', 8000);
