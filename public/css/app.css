@@ -1617,3 +1617,12 @@ input[name="codigo_calbas"]::placeholder { text-transform: none; }
   .faq-ilus { width: 42%; flex: 0 0 auto; padding: 8px; }
   .faq-item summary { font-size: 14px; padding: 13px 14px; }
 }
+
+/* v7.9 · Día sin uso y buffer opcional */
+.sin-uso { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 10px 0 4px; padding: 10px 12px; border-radius: 12px; border: 1px dashed var(--input-line); background: var(--card); font-size: 13px; }
+.sin-uso > svg { width: 18px; height: 18px; color: var(--muted); flex: 0 0 auto; }
+.sin-uso > span { flex: 1; min-width: 180px; }
+.sin-uso.ok { border-style: solid; border-color: var(--ok); }
+.sin-uso.ok > svg { color: var(--ok); }
+.pt-ref .pt-opc { display: block; margin-top: 3px; font-size: 10.5px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.pt-opcional input[name^="l"]::placeholder { font-size: 12px; }

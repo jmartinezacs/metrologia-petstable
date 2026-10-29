@@ -10,7 +10,7 @@
 import {
   sb, esc, icon, refreshIcons, toast, errMsg, must, checkForm, pill, fmtDate, fmtVal, fmtSigned, todayISO,
   aGramos, factorEMT, estadistica, U, convertirMasa, CLASES, CRITERIOS, tipoIcono, navigate, dictamenPill, emptyState,
-  avisar,
+  avisar, openModal, addDays,
 } from '../core.js';
 import { cargarEquipos } from './equipos.js';
 
@@ -110,7 +110,8 @@ async function elegir(id) {
         });
       }
     }
-    info.innerHTML = fichaCorta(eq);
+    info.innerHTML = fichaCorta(eq) + sinUsoHTML(eq);
+    info.querySelector("[data-sin-uso]")?.addEventListener("click", () => registrarSinUso(eq));
   } catch (err) { campos.innerHTML = `<div class="notice error">${esc(errMsg(err))}</div>`; }
   refreshIcons();
   preview();
@@ -120,6 +121,34 @@ function fichaCorta(e) {
   return `<div class="eq-mini"><span class="eq-ico t-${esc(e.tipo_clave_calbas.toLowerCase())}">${icon(tipoIcono(e.tipo_clave_calbas, e.icono_calbas))}</span>
     <div><b>${esc(e.codigo_calbas)} · ${esc(e.tipo_nombre_calbas)}</b><span>${esc([e.departamento_calbas, e.ubicacion_calbas].filter(Boolean).join(' · '))}</span>
     <span>Última verificación: ${e.ultima_verificacion_calbas ? `${fmtDate(e.ultima_verificacion_calbas)} (${e.ultimo_dictamen_calbas === 'NO_CUMPLE' ? 'no cumple' : 'cumple'})` : 'ninguna'}</span></div></div>`;
+}
+
+// «No se usó»: si al equipo le toca verificación y no se utilizó en el día, se registra
+// el día sin uso y la próxima verificación se cuenta desde esa fecha
+const leTocaVerificar = (e) => !e.proxima_verificacion_calbas || e.proxima_verificacion_calbas <= todayISO();
+function sinUsoHTML(e) {
+  if (!leTocaVerificar(e)) return '';
+  const hoyMarcado = e.ultimo_sin_uso_calbas === todayISO();
+  return `<div class="sin-uso ${hoyMarcado ? 'ok' : ''}">${icon(hoyMarcado ? 'circle-check' : 'calendar-off')}
+    <span>${hoyMarcado ? '<b>Hoy está registrado como día sin uso.</b> Si se llega a usar, verifícalo normalmente.' : '<b>¿Hoy no se usó este equipo?</b> Regístralo en lugar de la verificación; no contará como atraso.'}</span>
+    ${hoyMarcado ? '' : `<button type="button" class="btn outline sm" data-sin-uso>${icon('calendar-off')} No se usó</button>`}</div>`;
+}
+async function registrarSinUso(e) {
+  const hoy = todayISO();
+  const ok = await openModal({
+    title: `${e.codigo_calbas} · día sin uso`, subtitle: 'El equipo no se utilizó en el día que le tocaba verificación.', size: 'sm', submitText: 'Registrar día sin uso', confirmDiscard: false,
+    body: `<div class="field"><label for="su-f">Fecha <span class="req">*</span></label><input id="su-f" name="fecha" type="date" value="${hoy}" min="${addDays(hoy, -7)}" max="${hoy}" required></div>
+      <div class="field"><label for="su-o">Observaciones</label><textarea id="su-o" name="obs" rows="2" maxlength="300" placeholder="Opcional, p. ej. línea detenida por mantenimiento"></textarea></div>
+      <p class="hint">${icon('info')} Si el equipo se usa más tarde, regístrale su verificación normalmente.</p>`,
+    onSubmit: async ({ form }) => {
+      if (!checkForm(form)) return false;
+      must(await sb.from('sin_uso_calbas').insert({ origen_calbas: e.origen_calbas, equipo_id_calbas: e.id_calbas, fecha_calbas: form.elements.fecha.value, observaciones_calbas: form.elements.obs.value.trim() || null }));
+      return true;
+    },
+  });
+  if (!ok) return;
+  toast(`${e.codigo_calbas}: día sin uso registrado.`, 'success');
+  navigate('#/verificar');
 }
 
 function lecturasHTML(unidad, negativos) {
@@ -140,7 +169,10 @@ function pieHTML() {
     <div class="form-actions"><button type="submit" class="btn primary lg" id="v-save">${icon('save')} Registrar verificación</button></div>`;
 }
 const fmtNum6 = (n) => String(Math.round(n * 1e6) / 1e6);
-const numAt = () => `type="number" step="any" inputmode="decimal" ${ctx.tipo.permite_negativos_calbas ? '' : 'min="0"'}`;
+// Con negativos no se usa inputmode="decimal": ese teclado del celular no tiene el signo «−»
+const numAt = () => `type="number" step="any" ${ctx.tipo.permite_negativos_calbas ? '' : 'inputmode="decimal" min="0"'}`;
+// Con 3 o más buffers, el último (p. ej. pH 10.01) es opcional
+const bufferOpcional = (i, n) => n >= 3 && i === n - 1;
 
 // Potenciómetro: una lectura por buffer y, si hubo ajuste, la lectura después del ajuste
 function multipuntoHTML(patronSel) {
@@ -151,11 +183,12 @@ function multipuntoHTML(patronSel) {
     <h4 class="section-label mt">Lecturas en cada buffer <span class="u">(${esc(u)})</span></h4>
     <div class="pt-table">
       <div class="pt-row pt-head"><span>Buffer</span><span>Lectura del equipo</span><span>Desviación</span><span>Estado</span></div>
-      ${puntos.map((r, i) => `<div class="pt-row" data-pt="${i}">
-        <span class="pt-ref"><input name="ref${i}" ${numAt()} required value="${esc(r)}" aria-label="Valor del buffer ${i + 1}"></span>
-        <span><input name="l${i + 1}" ${numAt()} required placeholder="${esc(r)}" aria-label="Lectura en el buffer ${esc(r)}"></span>
+      ${puntos.map((r, i) => `<div class="pt-row ${bufferOpcional(i, puntos.length) ? 'pt-opcional' : ''}" data-pt="${i}">
+        <span class="pt-ref"><input name="ref${i}" ${numAt()} required value="${esc(r)}" aria-label="Valor del buffer ${i + 1}">${bufferOpcional(i, puntos.length) ? '<small class="pt-opc">Opcional</small>' : ''}</span>
+        <span><input name="l${i + 1}" ${numAt()} ${bufferOpcional(i, puntos.length) ? 'placeholder="Vacío si no se usó"' : `required placeholder="${esc(r)}"`} aria-label="Lectura en el buffer ${esc(r)}"></span>
         <span class="mono" data-dev>—</span><span data-st>${pill('Pendiente', 'gray')}</span></div>`).join('')}
     </div>
+    ${puntos.length >= 3 ? `<p class="hint">${icon('info')} El buffer ${esc(puntos[puntos.length - 1])} es opcional: si no lo usaste, deja su lectura vacía.</p>` : ''}
     <label class="switch-row mt"><span><b>Se realizó ajuste del potenciómetro</b><small>Márcalo si alguna lectura se desvió y ajustaste el equipo. Registra las lecturas después del ajuste.</small></span><input type="checkbox" id="v-ajuste" name="ajuste"></label>
     <div id="v-ajuste-box" class="ajuste-box hidden">
       <h4 class="section-label">Lecturas después del ajuste <span class="u">(${esc(u)})</span></h4>
@@ -180,7 +213,7 @@ function puntoUnicoHTML(patronSel) {
     <div class="dev-strip" id="v-dev"><small>Desviación (medición − patrón)</small><b class="mono">—</b></div>
     <label class="switch-row mt"><span><b>Se aplicó corrección</b><small>Si hubo desviación, corrige el equipo y registra cuánto le subiste (+) o bajaste (−) y la lectura después de corregir.</small></span><input type="checkbox" id="v-ajuste" name="ajuste"></label>
     <div id="v-ajuste-box" class="ajuste-box hidden"><div class="form-grid">
-      <div class="field"><label for="v-cor">Corrección aplicada (${esc(u)})</label><input id="v-cor" name="correccion" type="number" step="any" inputmode="decimal" placeholder="+ sube / − baja"><small class="hint">Se sugiere el valor que lleva la desviación a cero.</small></div>
+      <div class="field"><label for="v-cor">Corrección aplicada (${esc(u)})</label><input id="v-cor" name="correccion" type="number" step="any" placeholder="+ sube / − baja"><small class="hint">Se sugiere el valor que lleva la desviación a cero.</small></div>
       <div class="field"><label for="v-post0">Medición después de corregir (${esc(u)}) <span class="req">*</span></label><input id="v-post0" name="post0" data-post ${numAt()}></div>
       <div class="dev-strip full" id="v-dev-fin"><small>Desviación final (debe ser 0)</small><b class="mono">—</b></div></div></div>`;
 }
@@ -191,9 +224,13 @@ function leerGenerico() {
   const ajuste = !!f.ajuste?.checked;
   if (ctx.metodo === 'MULTIPUNTO') {
     const n = (ctx.tipo.puntos_referencia_calbas || []).length;
-    const refs = [], lect = [], post = [];
-    for (let i = 0; i < n; i++) { refs.push(num(f[`ref${i}`]?.value)); lect.push(num(f[`l${i + 1}`]?.value)); post.push(num(f[`post${i}`]?.value)); }
-    return { f, ajuste, refs, lect, post };
+    const refs = [], lect = [], post = [], usado = [];
+    for (let i = 0; i < n; i++) {
+      refs.push(num(f[`ref${i}`]?.value)); lect.push(num(f[`l${i + 1}`]?.value)); post.push(num(f[`post${i}`]?.value));
+      usado.push(!bufferOpcional(i, n) || lect[i] != null);
+    }
+    const sel = (a) => a.filter((_, i) => usado[i]);
+    return { f, ajuste, refs, lect, post, usado, sel };
   }
   const lect = ['l1', 'l2', 'l3'].map((k) => num(f[k]?.value));
   return { f, ajuste, ref: num(f.ref?.value), lect, post: [num(f.post0?.value)], cor: num(f.correccion?.value) };
@@ -263,6 +300,9 @@ function preview() {
       let ok = true, todos = true, maxD = null, okPost = null, todosPost = g.ajuste;
       g.refs.forEach((r, i) => {
         const row = root.querySelector(`[data-pt="${i}"]`), l = g.lect[i];
+        const prow0 = root.querySelector(`[data-post-row="${i}"]`);
+        prow0?.classList.toggle('hidden', !g.usado[i]);
+        if (!g.usado[i]) { row.querySelector('[data-dev]').textContent = '—'; row.querySelector('[data-st]').innerHTML = pill('No se usó', 'gray'); return; }
         const d = r == null || l == null ? null : l - r, tol = r == null ? 0 : tolDe(e, r);
         if (d == null) todos = false; else { if (Math.abs(d) > tol + 1e-12) ok = false; if (maxD == null || Math.abs(d) > Math.abs(maxD)) maxD = d; }
         row.querySelector('[data-dev]').textContent = d == null ? '—' : fmtSigned(d, 4);
@@ -272,7 +312,7 @@ function preview() {
         if (prow) { prow.querySelector('[data-dev]').textContent = dp == null ? '—' : fmtSigned(dp, 4); prow.querySelector('[data-st]').innerHTML = estadoPt(dp, tol); }
         if (g.ajuste) { if (dp == null) todosPost = false; else okPost = (okPost ?? true) && Math.abs(dp) <= tol + 1e-12; }
       });
-      const base = [['Buffers', g.refs.map((r) => fmtVal(r)).join(' / ')], ['Tolerancia por buffer', tolTxt],
+      const base = [['Buffers', g.sel(g.refs).map((r) => fmtVal(r)).join(' / ')], ['Tolerancia por buffer', tolTxt],
         ['Mayor desviación', maxD == null ? '—' : `${fmtSigned(maxD, 4)} ${ue}`]];
       if (g.ajuste) base.push(['Después del ajuste', todosPost ? (okPost ? 'Todos en tolerancia' : 'Aún fuera de tolerancia') : 'Captura las lecturas']);
       if (!todos) return card(pend, base, 'Captura la lectura del equipo en cada buffer.');
@@ -303,6 +343,11 @@ async function guardar(ev) {
   const form = ev.currentTarget;
   if (!eq) { toast('Selecciona un equipo.', 'warning'); return; }
   if (eq.origen_calbas !== 'bascula' && ctx.metodo === 'SOLO_CALIBRACION') { toast('Este equipo no lleva verificación interna.', 'warning'); return; }
+  // El buffer opcional sin lectura tampoco pide lectura después del ajuste
+  if (eq.origen_calbas !== 'bascula' && ctx.metodo === 'MULTIPUNTO') {
+    const g = leerGenerico();
+    g.usado.forEach((u, i) => { const p = form.elements[`post${i}`]; if (p) p.required = g.ajuste && u; });
+  }
   if (!checkForm(form)) return;
   const { f, est, lecturas } = leer();
   if (eq.origen_calbas === 'bascula' && !est) { toast('Captura las tres lecturas.', 'warning'); return; }
@@ -327,9 +372,10 @@ async function guardar(ev) {
       const row = { equipo_id_calbas: eq.id_calbas, departamento_id_calbas: eq.departamento_id_calbas, patron_id_calbas: f.patron.value,
         fecha_calbas: f.fecha.value, observaciones_calbas: f.obs.value.trim() || null, ajuste_realizado_calbas: g.ajuste, etiqueta_danada_calbas: f.etiqueta.checked };
       if (ctx.metodo === 'MULTIPUNTO') {
-        Object.assign(row, { referencias_calbas: g.refs, valor_referencia_calbas: g.refs[0], temperatura_calbas: f.temp.value === '' ? null : Number(f.temp.value),
-          lectura_1_calbas: g.lect[0], lectura_2_calbas: g.lect[1] ?? null, lectura_3_calbas: g.lect[2] ?? null,
-          lecturas_post_calbas: g.ajuste ? g.post : null });
+        const refs = g.sel(g.refs), lect = g.sel(g.lect);
+        Object.assign(row, { referencias_calbas: refs, valor_referencia_calbas: refs[0], temperatura_calbas: f.temp.value === '' ? null : Number(f.temp.value),
+          lectura_1_calbas: lect[0], lectura_2_calbas: lect[1] ?? null, lectura_3_calbas: lect[2] ?? null,
+          lecturas_post_calbas: g.ajuste ? g.sel(g.post) : null });
       } else {
         Object.assign(row, { valor_referencia_calbas: g.ref, lectura_1_calbas: g.lect[0], lectura_2_calbas: g.lect[1], lectura_3_calbas: g.lect[2],
           correccion_calbas: g.ajuste ? g.cor : null, lecturas_post_calbas: g.ajuste ? g.post : null });

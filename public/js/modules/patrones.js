@@ -120,7 +120,7 @@ async function formPatron(id) {
     body: `<div class="form-grid">
       <div class="field"><label for="p-tipo">Se usa para verificar <span class="req">*</span></label><select id="p-tipo" name="tipo_id_calbas" required ${id ? 'disabled' : ''}>${tipos.map((t) => `<option value="${t.id_calbas}" ${t.id_calbas === t0?.id_calbas ? 'selected' : ''}>${esc(t.nombre_calbas)}</option>`).join('')}</select></div>
       ${fld('descripcion_calbas', 'Descripción', p.descripcion_calbas, 'maxlength="140" placeholder="Ej. Buffer pH 7.00 certificado / Termómetro patrón digital"', true)}
-      ${fld('valor_nominal_calbas', 'Valor nominal (vacío si es variable)', p.valor_nominal_calbas, 'type="number" step="any" inputmode="decimal"')}
+      ${fld('valor_nominal_calbas', 'Valor nominal (vacío si es variable)', p.valor_nominal_calbas, 'type="number" step="any"')}
       <div class="field"><label for="p-unidad">Unidad <span class="req">*</span></label><select id="p-unidad" name="unidad_calbas" data-unidad>${t0 ? unidades(t0) : ''}</select></div>
       ${fld('incertidumbre_calbas', 'Incertidumbre (±)', p.incertidumbre_calbas, 'type="number" step="any" min="0" inputmode="decimal"')}
       ${fld('numero_certificado_calbas', 'Número de certificado', p.numero_certificado_calbas, 'maxlength="80"')}

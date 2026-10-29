@@ -265,7 +265,8 @@ const deptoOpts = (deptos, sel) => `<option value="">Selecciona…</option>${dep
 const fld = (name, label, val, attrs = '', req = false, ayuda = '', sufijo = '') => `<div class="field"><label for="f-${name}">${esc(label)}${req ? ' <span class="req">*</span>' : ''}</label>
   <div class="${sufijo ? 'input-suffix' : ''}"><input id="f-${name}" name="${name}" value="${esc(val ?? '')}" ${req ? 'required' : ''} ${attrs}>${sufijo ? `<span class="sfx" data-sfx>${esc(sufijo)}</span>` : ''}</div>
   ${ayuda ? `<small class="hint">${esc(ayuda)}</small>` : ''}</div>`;
-const num = (name, label, val, req = false, extra = '', ayuda = '', sufijo = '') => fld(name, label, val, `type="number" step="any" inputmode="decimal" ${extra}`, req, ayuda, sufijo);
+// «data-neg»: admite negativos; sin inputmode="decimal" porque ese teclado del celular no trae el signo «−»
+const num = (name, label, val, req = false, extra = '', ayuda = '', sufijo = '') => fld(name, label, val, `type="number" step="any" ${extra.includes('data-neg') ? '' : 'inputmode="decimal"'} ${extra}`, req, ayuda, sufijo);
 const seccion = (ico, titulo, sub = '') => `<div class="form-section full"><span class="fs-ico">${icon(ico)}</span><div><b>${esc(titulo)}</b>${sub ? `<small>${esc(sub)}</small>` : ''}</div></div>`;
 const banner = (tipo, editar, codigo) => `<div class="form-banner"><span class="eq-ico lg t-${esc(tipo.clave_calbas.toLowerCase())}">${icon(tipoIcono(tipo.clave_calbas, tipo.icono_calbas))}</span>
   <div><b>${editar ? `Editando ${esc(codigo)}` : `Alta de equipo: ${esc(tipo.nombre_calbas)}`}</b><span>${esc(tipo.magnitud_calbas)} · unidades ${esc(tipo.unidades_calbas.map(U).join(', '))}</span></div></div>`;
@@ -350,8 +351,8 @@ async function formGenerico(d, tipo, deptos) {
       ${seccion('ruler', 'Características de medición')}
       <div class="field"><label for="f-unidad">Unidad <span class="req">*</span></label><select id="f-unidad" name="unidad_calbas" required data-unidad>${tipo.unidades_calbas.map((u) => `<option value="${esc(u)}" ${d.unidad_calbas === u ? 'selected' : ''}>${esc(U(u))}</option>`).join('')}</select></div>
       ${num('resolucion_calbas', 'Resolución', d.resolucion_calbas, false, 'min="0" placeholder="Ej. 0.1"', 'El valor más pequeño que el equipo puede mostrar (su último dígito). Si marca 4.5 °C es 0.1; si marca 7.01 pH es 0.01.', tipo.unidades_calbas[0])}
-      ${num('rango_min_calbas', 'Rango mínimo', d.rango_min_calbas, false, '', '', tipo.unidades_calbas[0])}
-      ${num('rango_max_calbas', 'Rango máximo', d.rango_max_calbas, false, '', '', tipo.unidades_calbas[0])}
+      ${num('rango_min_calbas', 'Rango mínimo', d.rango_min_calbas, false, 'data-neg', 'Admite negativos, p. ej. −40.', tipo.unidades_calbas[0])}
+      ${num('rango_max_calbas', 'Rango máximo', d.rango_max_calbas, false, 'data-neg', '', tipo.unidades_calbas[0])}
       ${seccion('target', 'Criterio de aceptación', 'Debe provenir del procedimiento interno, la norma o el fabricante; el valor sugerido es solo un punto de partida.')}
       <div class="field"><label for="f-toltipo">Tipo de tolerancia</label><select id="f-toltipo" name="tolerancia_tipo_calbas"><option value="ABSOLUTA" ${tolTipo === 'ABSOLUTA' ? 'selected' : ''}>Absoluta (± en la unidad del equipo)</option><option value="PORCENTAJE" ${tolTipo === 'PORCENTAJE' ? 'selected' : ''}>Porcentaje del valor de referencia</option></select></div>
       ${num('tolerancia_calbas', 'Tolerancia (±)', d.tolerancia_calbas ?? tipo.tolerancia_sugerida_calbas, true, 'min="0"', 'Error máximo aceptado contra el patrón.')}

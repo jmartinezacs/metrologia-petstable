@@ -44,6 +44,13 @@ Sirve una build `-Prueba` con `tools\serve.ps1 -Root <carpeta>`. Luego sustituye
 - `public/js/modules/etiquetas.js` genera el PDF tamaño carta con jsPDF 2.5.1 (se carga al generar) y el formato de la hoja «Etiquetas para equipos de medición»: básculas 72.6 × 22.2 mm (18 por hoja), demás 39.7 × 22.2 mm (36 por hoja). Las medidas salen de los píxeles de la hoja a 96 ppp; no las cambies sin una indicación.
 - «Etiqueta dañada» en la verificación (`etiqueta_danada_calbas`) crea por trigger un pendiente en `etiquetas_danadas_calbas` (vista `vw_etiquetas_danadas_calbas`, solo administradores) y avisa por push (`recordatorios_calbas`, acción `etiqueta`). Se cierra desde el Panel con «Reemplazada».
 
+## Días sin uso y buffer opcional (v7.9)
+
+- `sin_uso_calbas`: si a un equipo le toca verificación y no se usó, se registra el día (trigger `calbas_private.validar_sin_uso_calbas`: solo si le tocaba, hasta 7 días atrás). `vw_equipos_calbas` calcula la próxima verificación desde la última verificación o día sin uso (`ultimo_sin_uso_calbas`).
+- MULTIPUNTO: con 3 o más puntos configurados, el último es opcional (regla en `validar_verificacion_equipo_calbas`).
+- Campos que admiten negativos: `type="number"` sin `inputmode="decimal"` (ese teclado del celular no tiene «−»).
+- El router reemplaza `#view` en cada navegación para que no se acumulen los eventos de los módulos.
+
 ## Avisos push (v7.6)
 
 - Mismo esquema que Pruebas industriales: `push_subs_calbas`, claves VAPID en `calbas_private.config_push_calbas` y secreto del cron en `calbas_private.cron_calbas`. `avisos_calbas` registra lo enviado (un aviso por persona, tipo y día).

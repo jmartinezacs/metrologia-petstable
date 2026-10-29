@@ -229,8 +229,11 @@ async function route() {
     document.title = 'Metrología';
     document.body.dataset.route = name;
     closeMenu();
-    const view = $('#view');
-    view.innerHTML = '';
+    // Contenedor nuevo en cada ruta: así no se acumulan los eventos que cada módulo
+    // registra en él (antes, al volver a una página, un clic abría el formulario dos veces)
+    const anterior = $('#view');
+    const view = anterior.cloneNode(false);
+    anterior.replaceWith(view);
     window.scrollTo(0, 0);
     await r.mod.render(view, params);
     refreshIcons();
