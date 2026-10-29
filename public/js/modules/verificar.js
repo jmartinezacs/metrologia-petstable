@@ -92,12 +92,18 @@ async function elegir(id) {
             <option value="">${ctx.pats.length ? 'Selecciona…' : 'No hay patrones vigentes para este tipo (regístralo en Patrones)'}</option>${ctx.pats.map((p) => `<option value="${p.id_calbas}">${esc(p.codigo_calbas)} · ${esc(p.descripcion_calbas)}${p.lote_calbas ? ` · lote ${esc(p.lote_calbas)}` : ''}</option>`).join('')}</select></div>`;
         campos.innerHTML = `
           ${ctx.tipo.guia_calbas ? `<div class="notice info">${icon('info')}<span>${esc(ctx.tipo.guia_calbas)}</span></div>` : ''}
-          ${ctx.metodo === 'MULTIPUNTO' ? multipuntoHTML(patronSel) : puntoUnicoHTML(patronSel)}
+          ${ctx.metodo === 'MULTIPUNTO' ? multipuntoHTML() : puntoUnicoHTML(patronSel)}
           ${pieHTML()}`;
-        campos.querySelector('#v-pat').addEventListener('change', (ev) => {
+        campos.querySelector('#v-pat')?.addEventListener('change', (ev) => {
           const p = ctx.pats.find((x) => x.id_calbas === ev.target.value);
           if (ctx.metodo === 'PUNTO_UNICO' && p?.valor_nominal_calbas != null) { campos.querySelector('#v-ref').value = p.valor_nominal_calbas; preview(); }
         });
+        // Buffers: el valor del punto toma el valor nominal del patrón elegido
+        const sincronizarRef = (s) => {
+          const p = ctx.pats.find((x) => x.id_calbas === s.value), ref = campos.querySelector(`[name="ref${s.dataset.pb}"]`);
+          if (p?.valor_nominal_calbas != null && ref) ref.value = p.valor_nominal_calbas;
+        };
+        campos.querySelectorAll('[data-pb]').forEach((s) => { sincronizarRef(s); s.addEventListener('change', () => { sincronizarRef(s); preview(); }); });
         // Mostrar / ocultar la sección de ajuste o corrección
         campos.querySelector('#v-ajuste').addEventListener('change', (ev) => {
           campos.querySelector('#v-ajuste-box').classList.toggle('hidden', !ev.target.checked);
@@ -175,11 +181,18 @@ const numAt = () => `type="number" step="any" ${ctx.tipo.permite_negativos_calba
 const bufferOpcional = (i, n) => n >= 3 && i === n - 1;
 
 // Potenciómetro: una lectura por buffer y, si hubo ajuste, la lectura después del ajuste
-function multipuntoHTML(patronSel) {
+function multipuntoHTML() {
   const u = U(ctx.e.unidad_calbas);
   const puntos = ctx.tipo.puntos_referencia_calbas || [];
-  return `<div class="form-grid">${patronSel}
-      <div class="field"><label for="v-temp">Temperatura de los buffers (°C)</label><input id="v-temp" name="temp" type="number" step="any" inputmode="decimal" placeholder="Opcional, p. ej. 25"></div></div>
+  // Un patrón (buffer certificado) por punto; se preselecciona el que tiene ese valor nominal
+  const pick = (r) => ctx.pats.find((p) => p.valor_nominal_calbas != null && Math.abs(Number(p.valor_nominal_calbas) - Number(r)) < 1e-9)?.id_calbas;
+  const opts = (sel) => `<option value="">${ctx.pats.length ? 'Selecciona…' : 'No hay patrones vigentes'}</option>${ctx.pats.map((p) => `<option value="${p.id_calbas}" ${p.id_calbas === sel ? 'selected' : ''}>${esc(p.codigo_calbas)} · ${esc(p.descripcion_calbas)}${p.lote_calbas ? ` · lote ${esc(p.lote_calbas)}` : ''}</option>`).join('')}`;
+  return `<h4 class="section-label">Buffers certificados utilizados</h4>
+    <div class="buffers-grid">
+      ${puntos.map((r, i) => `<div class="field"><label for="v-pb${i}">Buffer ${esc(r)} ${bufferOpcional(i, puntos.length) ? '<span class="opc">(opcional)</span>' : '<span class="req">*</span>'}</label>
+        <select id="v-pb${i}" name="pb${i}" data-pb="${i}" ${bufferOpcional(i, puntos.length) ? '' : 'required'}>${opts(bufferOpcional(i, puntos.length) ? '' : pick(r))}</select></div>`).join('')}
+      <div class="field"><label for="v-temp">Temperatura de los buffers (°C)</label><input id="v-temp" name="temp" type="number" step="any" inputmode="decimal" value="25"></div>
+    </div>
     <h4 class="section-label mt">Lecturas en cada buffer <span class="u">(${esc(u)})</span></h4>
     <div class="pt-table">
       <div class="pt-row pt-head"><span>Buffer</span><span>Lectura del equipo</span><span>Desviación</span><span>Estado</span></div>
@@ -224,13 +237,14 @@ function leerGenerico() {
   const ajuste = !!f.ajuste?.checked;
   if (ctx.metodo === 'MULTIPUNTO') {
     const n = (ctx.tipo.puntos_referencia_calbas || []).length;
-    const refs = [], lect = [], post = [], usado = [];
+    const refs = [], lect = [], post = [], usado = [], pbs = [];
     for (let i = 0; i < n; i++) {
       refs.push(num(f[`ref${i}`]?.value)); lect.push(num(f[`l${i + 1}`]?.value)); post.push(num(f[`post${i}`]?.value));
+      pbs.push(f[`pb${i}`]?.value || null);
       usado.push(!bufferOpcional(i, n) || lect[i] != null);
     }
     const sel = (a) => a.filter((_, i) => usado[i]);
-    return { f, ajuste, refs, lect, post, usado, sel };
+    return { f, ajuste, refs, lect, post, usado, sel, pbs };
   }
   const lect = ['l1', 'l2', 'l3'].map((k) => num(f[k]?.value));
   return { f, ajuste, ref: num(f.ref?.value), lect, post: [num(f.post0?.value)], cor: num(f.correccion?.value) };
@@ -271,7 +285,7 @@ function preview() {
   const { f, est } = leer();
   const avg = root.querySelector('#v-avg');
   if (ctx.metodo === 'SOLO_CALIBRACION') return card(pill('No aplica', 'info'), [['Equipo', eq.codigo_calbas]], 'Este equipo solo lleva calibraciones externas.');
-  if (!f.patron) return card(pend, [['Equipo', eq.codigo_calbas]], 'Cargando datos del equipo…');
+  if (!f.patron && !f.pb0) return card(pend, [['Equipo', eq.codigo_calbas]], 'Cargando datos del equipo…');
   try {
     if (eq.origen_calbas === 'bascula') {
       const { b } = ctx;
@@ -346,7 +360,10 @@ async function guardar(ev) {
   // El buffer opcional sin lectura tampoco pide lectura después del ajuste
   if (eq.origen_calbas !== 'bascula' && ctx.metodo === 'MULTIPUNTO') {
     const g = leerGenerico();
-    g.usado.forEach((u, i) => { const p = form.elements[`post${i}`]; if (p) p.required = g.ajuste && u; });
+    g.usado.forEach((u, i) => {
+      const p = form.elements[`post${i}`]; if (p) p.required = g.ajuste && u;
+      const pb = form.elements[`pb${i}`]; if (pb) pb.required = u;
+    });
   }
   if (!checkForm(form)) return;
   const { f, est, lecturas } = leer();
@@ -369,13 +386,13 @@ async function guardar(ev) {
       if (r.dictamen_calbas === 'NO_CUMPLE') avisar({ accion: 'no_cumple', origen: 'bascula', id: r.id_calbas });
     } else {
       const g = leerGenerico();
-      const row = { equipo_id_calbas: eq.id_calbas, departamento_id_calbas: eq.departamento_id_calbas, patron_id_calbas: f.patron.value,
+      const row = { equipo_id_calbas: eq.id_calbas, departamento_id_calbas: eq.departamento_id_calbas, patron_id_calbas: ctx.metodo === 'MULTIPUNTO' ? g.sel(g.pbs)[0] : f.patron.value,
         fecha_calbas: f.fecha.value, observaciones_calbas: f.obs.value.trim() || null, ajuste_realizado_calbas: g.ajuste, etiqueta_danada_calbas: f.etiqueta.checked };
       if (ctx.metodo === 'MULTIPUNTO') {
         const refs = g.sel(g.refs), lect = g.sel(g.lect);
         Object.assign(row, { referencias_calbas: refs, valor_referencia_calbas: refs[0], temperatura_calbas: f.temp.value === '' ? null : Number(f.temp.value),
           lectura_1_calbas: lect[0], lectura_2_calbas: lect[1] ?? null, lectura_3_calbas: lect[2] ?? null,
-          lecturas_post_calbas: g.ajuste ? g.sel(g.post) : null });
+          lecturas_post_calbas: g.ajuste ? g.sel(g.post) : null, patrones_buffers_calbas: g.sel(g.pbs) });
       } else {
         Object.assign(row, { valor_referencia_calbas: g.ref, lectura_1_calbas: g.lect[0], lectura_2_calbas: g.lect[1], lectura_3_calbas: g.lect[2],
           correccion_calbas: g.ajuste ? g.cor : null, lecturas_post_calbas: g.ajuste ? g.post : null });

@@ -30,9 +30,9 @@ export default {
         <div><span class="eyebrow">Inventario metrológico</span><h1>Equipos</h1>
           <p>Básculas, termómetros, potenciómetros, micropipetas y demás instrumentos con su estado de verificación y calibración.</p></div>
         <div class="page-actions">
-          ${state.isAdmin ? `<button class="btn teal" data-eq="etiquetas">${icon('tag')} Etiquetas</button>
-          <button class="btn outline" data-eq="tipos">${icon('settings-2')} Tipos de equipo</button>
-          <button class="btn primary" data-eq="nuevo">${icon('plus')} Nuevo equipo</button>` : ''}
+          ${state.isAdmin ? `<button class="btn violet" data-eq="etiquetas">${icon('tag')} Etiquetas</button>
+          <button class="btn navy" data-eq="tipos">${icon('settings-2')} Tipos de equipo</button>
+          <button class="btn green" data-eq="nuevo">${icon('plus')} Nuevo equipo</button>` : ''}
         </div>
       </section>
       <div class="type-strip" id="eq-tipos"></div>

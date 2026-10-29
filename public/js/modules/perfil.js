@@ -30,8 +30,8 @@ function pintar() {
     <section class="page-intro"><div><span class="eyebrow">Cuenta</span><h1>Mi perfil</h1><p>Tus datos de acceso y preferencias.</p></div></section>
     <section class="profile-hero">
       <div class="access-photo">${avatarHTML(p.nombre_completo_calbas, fotoDe(p.correo_calbas, p.avatar_url_calbas), 'xl')}<span class="access-check">${icon('badge-check')}</span>
-        <label for="pf-foto" class="photo-edit" title="Cambiar fotografía" aria-label="Cambiar fotografía">${icon('camera')}</label>
-        <input id="pf-foto" type="file" accept="image/jpeg,image/png,image/webp" class="sr-only"></div>
+        ${admin ? `<label for="pf-foto" class="photo-edit" title="Cambiar fotografía" aria-label="Cambiar fotografía">${icon('camera')}</label>
+        <input id="pf-foto" type="file" accept="image/jpeg,image/png,image/webp" class="sr-only">` : ''}</div>
       <div>
         <span class="access-badge">${icon(admin ? 'crown' : 'user')} ${admin ? 'Administrador' : 'Usuario'}</span>
         <h2>${esc(p.nombre_completo_calbas)}</h2>
@@ -97,7 +97,7 @@ function pintar() {
     deferredPrompt = null;
     root?.querySelector('#install-btn')?.classList.add('hidden');
   });
-  root.querySelector('#pf-foto').addEventListener('change', async (e) => {
+  root.querySelector('#pf-foto')?.addEventListener('change', async (e) => {
     const f = e.target.files[0];
     if (!f) return;
     try {

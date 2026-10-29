@@ -41,13 +41,14 @@ Sirve una build `-Prueba` con `tools\serve.ps1 -Root <carpeta>`. Luego sustituye
 
 ## Etiquetas (v7.7)
 
-- `public/js/modules/etiquetas.js` genera el PDF tamaño carta con jsPDF 2.5.1 (se carga al generar) y el formato de la hoja «Etiquetas para equipos de medición»: básculas 72.6 × 22.2 mm (18 por hoja), demás 39.7 × 22.2 mm (36 por hoja). Las medidas salen de los píxeles de la hoja a 96 ppp; no las cambies sin una indicación.
+- `public/js/modules/etiquetas.js` genera el PDF tamaño carta con jsPDF 2.5.1 (se carga al generar) y el formato de la hoja «Etiquetas para equipos de medición»: básculas 72.6 × 22.2 mm (18 por hoja); termómetros, potenciómetros y micropipetas 32 × 11.1 mm con solo logotipo y código (75 por hoja, desde v8.0). Las medidas salen de los píxeles de la hoja a 96 ppp; no las cambies sin una indicación.
 - «Etiqueta dañada» en la verificación (`etiqueta_danada_calbas`) crea por trigger un pendiente en `etiquetas_danadas_calbas` (vista `vw_etiquetas_danadas_calbas`, solo administradores) y avisa por push (`recordatorios_calbas`, acción `etiqueta`). Se cierra desde el Panel con «Reemplazada».
 
 ## Días sin uso y buffer opcional (v7.9)
 
 - `sin_uso_calbas`: si a un equipo le toca verificación y no se usó, se registra el día (trigger `calbas_private.validar_sin_uso_calbas`: solo si le tocaba, hasta 7 días atrás). `vw_equipos_calbas` calcula la próxima verificación desde la última verificación o día sin uso (`ultimo_sin_uso_calbas`).
 - MULTIPUNTO: con 3 o más puntos configurados, el último es opcional (regla en `validar_verificacion_equipo_calbas`).
+- Desde v8.0 cada buffer lleva su patrón: `patrones_buffers_calbas` (alineado con `referencias_calbas`; `patron_id_calbas` = el primero). La temperatura sugerida es 25 °C. La fotografía de perfil solo la cambian administradores (trigger `calbas_private.proteger_foto_calbas`).
 - Campos que admiten negativos: `type="number"` sin `inputmode="decimal"` (ese teclado del celular no tiene «−»).
 - El router reemplaza `#view` en cada navegación para que no se acumulen los eventos de los módulos.
 
