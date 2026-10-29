@@ -35,6 +35,10 @@ Guía para Claude Code al trabajar en este repositorio.
 
 Sirve una build `-Prueba` con `tools\serve.ps1 -Root <carpeta>`. Luego sustituye `sb.from`/`sb.rpc` por datos simulados (inyecta un `<script src>` del mismo origen, porque la CSP bloquea `eval`) y dispara `sb.auth._notifyAllSubscribers('SIGNED_IN', session)`. No escribas contraseñas reales.
 
+## Preguntas frecuentes (v7.8)
+
+- `public/js/modules/ayuda.js` (ruta `#/ayuda`, para todos): contenido en `TEMAS` (respuestas con `**negritas**` y viñetas `- `), tutorial de instalación en `INSTALAR` con ilustraciones SVG propias, y la guía PDF (portada, índice, preguntas y tutorial) con jsPDF. Si cambia un flujo de la app, actualiza aquí la respuesta.
+
 ## Etiquetas (v7.7)
 
 - `public/js/modules/etiquetas.js` genera el PDF tamaño carta con jsPDF 2.5.1 (se carga al generar) y el formato de la hoja «Etiquetas para equipos de medición»: básculas 72.6 × 22.2 mm (18 por hoja), demás 39.7 × 22.2 mm (36 por hoja). Las medidas salen de los píxeles de la hoja a 96 ppp; no las cambies sin una indicación.

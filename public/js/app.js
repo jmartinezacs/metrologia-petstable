@@ -13,6 +13,7 @@ import calibraciones from './modules/calibraciones.js';
 import dashboard from './modules/dashboard.js';
 import usuarios from './modules/usuarios.js';
 import bitacora from './modules/bitacora.js';
+import ayuda from './modules/ayuda.js';
 import perfil from './modules/perfil.js';
 
 const ROUTES = {
@@ -25,6 +26,7 @@ const ROUTES = {
   usuarios:      { mod: usuarios,      icon: 'users',            label: 'Usuarios',              roles: ['admin', 'usuario'] },
   bitacora:      { mod: bitacora,      icon: 'scroll-text',      label: 'Bitácora',              roles: ['admin'] },
   perfil:        { mod: perfil,        icon: 'circle-user',      label: 'Mi perfil',             roles: ['admin', 'usuario'] },
+  ayuda:         { mod: ayuda,         icon: 'circle-help',      label: 'Preguntas frecuentes',  roles: ['admin', 'usuario'] },
 };
 
 const $ = (s) => document.querySelector(s);
