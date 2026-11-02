@@ -4,7 +4,7 @@
 // =====================================================================
 import {
   sb, state, esc, icon, refreshIcons, toast, checkForm, must, avatarHTML, fotoDe, fmtDateTime, prefs, APP_VERSION,
-  prepararFoto, subirFotoPropia, ganchos, errMsg, push,
+  prepararFoto, subirFotoPropia, ganchos, errMsg, push, openModal, confirmDialog, fmtDate, todayISO, pill,
 } from '../core.js';
 
 let root;
@@ -79,8 +79,9 @@ function pintar() {
     </div>
     <div class="card mt" id="avisos-card">
       <div class="card-head"><div><h3>${icon('bell-ring')} Avisos en este dispositivo</h3>
-        <p>${admin ? 'Cada mañana (lunes a sábado, 8:00) te avisamos de las calibraciones por vencer o vencidas y de las verificaciones con 3 días o más de atraso. También recibes al momento cada «no cumple».'
-          : 'Cada mañana (lunes a sábado, 8:00) te avisamos de los equipos que te toca verificar y de los que ya están atrasados.'}</p></div></div>
+        <p>${admin ? 'Cada mañana de lunes a viernes (8:00, excepto días festivos) te avisamos de las calibraciones por vencer o vencidas y de las verificaciones con 3 días o más de atraso. También recibes al momento cada «no cumple».'
+          : 'Cada mañana de lunes a viernes (8:00, excepto días festivos) te avisamos de los equipos que te toca verificar y de los que ya están atrasados.'}</p></div>
+        ${admin ? `<button type="button" class="btn secondary sm" id="festivos-btn">${icon('calendar-x')} Días festivos</button>` : ''}</div>
       <div id="avisos-estado" class="avisos-estado">${icon('loader')} Revisando…</div>
     </div>`;
   refreshIcons();
@@ -97,6 +98,7 @@ function pintar() {
     deferredPrompt = null;
     root?.querySelector('#install-btn')?.classList.add('hidden');
   });
+  root.querySelector('#festivos-btn')?.addEventListener('click', dialogoFestivos);
   root.querySelector('#pf-foto')?.addEventListener('change', async (e) => {
     const f = e.target.files[0];
     if (!f) return;
@@ -120,6 +122,62 @@ function pintar() {
     if (error) { toast(errMsg(error), 'error'); return; }
     form.reset();
     toast('Contraseña actualizada.', 'success');
+  });
+}
+
+// Días festivos (administradores): sin recordatorios esos días. Los oficiales
+// (LFT art. 74) los calcula la base de datos; aquí se agregan los de la empresa.
+const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+async function dialogoFestivos() {
+  let anio = Number(todayISO().slice(0, 4));
+  await openModal({
+    title: 'Días festivos', subtitle: 'Esos días, igual que sábados y domingos, no se envían recordatorios.', size: 'md',
+    body: `<div class="fest-anio"><button type="button" class="icon-btn" data-anio="-1" aria-label="Año anterior">${icon('chevron-left')}</button>
+        <b id="fest-anio"></b><button type="button" class="icon-btn" data-anio="1" aria-label="Año siguiente">${icon('chevron-right')}</button></div>
+      <ul class="fest-lista" id="fest-lista"></ul>
+      <div class="section-title" style="margin-top:16px">${icon('calendar-plus')} Agregar día de la empresa</div>
+      <div class="fest-nuevo">
+        <div class="field"><label for="fest-fecha">Fecha</label><input id="fest-fecha" type="date"></div>
+        <div class="field"><label for="fest-motivo">Motivo</label><input id="fest-motivo" type="text" maxlength="80" placeholder="Ej. Viernes Santo"></div>
+        <button type="button" class="btn navy" id="fest-agregar">${icon('plus')} Agregar</button>
+      </div>`,
+    onOpen: ({ form }) => {
+      const lista = form.querySelector('#fest-lista');
+      const cargar = async () => {
+        form.querySelector('#fest-anio').textContent = anio;
+        lista.innerHTML = `<li class="hint">${icon('loader')} Cargando…</li>`; refreshIcons();
+        const { data, error } = await sb.rpc('calbas_dias_festivos', { anio });
+        if (error) { lista.innerHTML = `<li class="hint">${esc(errMsg(error))}</li>`; return; }
+        const { data: propios } = await sb.from('dias_festivos_calbas').select('id_calbas, fecha_calbas')
+          .gte('fecha_calbas', `${anio}-01-01`).lte('fecha_calbas', `${anio}-12-31`);
+        const ids = Object.fromEntries((propios || []).map((p) => [p.fecha_calbas, p.id_calbas]));
+        lista.innerHTML = (data || []).map((d) => `<li>
+            <span class="fest-fecha">${fmtDate(d.fecha)}<small>${DIAS[new Date(`${d.fecha}T12:00:00Z`).getUTCDay()]}</small></span>
+            <span class="fest-motivo">${esc(d.motivo)}</span>
+            ${d.oficial ? pill('Oficial', 'gray') : `${pill('Empresa', 'info')}<button type="button" class="icon-btn" data-borrar="${ids[d.fecha] || ''}" data-motivo="${esc(d.motivo)}" title="Quitar" aria-label="Quitar">${icon('trash-2')}</button>`}
+          </li>`).join('') || `<li class="hint">Sin días festivos.</li>`;
+        refreshIcons();
+      };
+      form.querySelectorAll('[data-anio]').forEach((b) => b.addEventListener('click', () => { anio += Number(b.dataset.anio); cargar(); }));
+      lista.addEventListener('click', async (e) => {
+        const b = e.target.closest('[data-borrar]');
+        if (!b?.dataset.borrar) return;
+        if (!await confirmDialog({ title: 'Quitar día festivo', message: `¿Quitar «${b.dataset.motivo}»? Ese día sí se enviarán recordatorios.`, confirmText: 'Quitar', danger: true })) return;
+        try { must(await sb.from('dias_festivos_calbas').delete().eq('id_calbas', b.dataset.borrar)); toast('Día festivo quitado.', 'success'); cargar(); }
+        catch (err) { toast(errMsg(err), 'error'); }
+      });
+      form.querySelector('#fest-agregar').addEventListener('click', async () => {
+        const fecha = form.querySelector('#fest-fecha').value, motivo = form.querySelector('#fest-motivo').value.trim();
+        if (!fecha || motivo.length < 2) { toast('Indica la fecha y el motivo.', 'warning'); return; }
+        try {
+          must(await sb.from('dias_festivos_calbas').insert({ fecha_calbas: fecha, motivo_calbas: motivo }));
+          toast('Día festivo agregado.', 'success');
+          form.querySelector('#fest-fecha').value = ''; form.querySelector('#fest-motivo').value = '';
+          anio = Number(fecha.slice(0, 4)); cargar();
+        } catch (err) { toast(/duplicate|unique/i.test(err?.message || '') ? 'Esa fecha ya está registrada.' : errMsg(err), 'error'); }
+      });
+      cargar();
+    },
   });
 }
 

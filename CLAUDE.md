@@ -41,7 +41,7 @@ Sirve una build `-Prueba` con `tools\serve.ps1 -Root <carpeta>`. Luego sustituye
 
 ## Etiquetas (v7.7)
 
-- `public/js/modules/etiquetas.js` genera el PDF tamaño carta con jsPDF 2.5.1 (se carga al generar) y el formato de la hoja «Etiquetas para equipos de medición»: básculas 72.6 × 22.2 mm (18 por hoja); termómetros, potenciómetros y micropipetas 32 × 11.1 mm con solo logotipo y código (75 por hoja, desde v8.0). Las medidas salen de los píxeles de la hoja a 96 ppp; no las cambies sin una indicación.
+- `public/js/modules/etiquetas.js` genera el PDF tamaño carta con jsPDF 2.5.1 (se carga al generar) y el formato de la hoja «Etiquetas para equipos de medición»: básculas 54.4 × 16.7 mm (36 por hoja); termómetros, potenciómetros y micropipetas 24 × 8.3 mm con solo logotipo y código (147 por hoja). Las medidas salen de los píxeles de la hoja a 96 ppp, al 75 % (`ESCALA`, v8.1); no las cambies sin una indicación.
 - «Etiqueta dañada» en la verificación (`etiqueta_danada_calbas`) crea por trigger un pendiente en `etiquetas_danadas_calbas` (vista `vw_etiquetas_danadas_calbas`, solo administradores) y avisa por push (`recordatorios_calbas`, acción `etiqueta`). Se cierra desde el Panel con «Reemplazada».
 
 ## Días sin uso y buffer opcional (v7.9)
@@ -55,7 +55,7 @@ Sirve una build `-Prueba` con `tools\serve.ps1 -Root <carpeta>`. Luego sustituye
 ## Avisos push (v7.6)
 
 - Mismo esquema que Pruebas industriales: `push_subs_calbas`, claves VAPID en `calbas_private.config_push_calbas` y secreto del cron en `calbas_private.cron_calbas`. `avisos_calbas` registra lo enviado (un aviso por persona, tipo y día).
-- La Edge Function `recordatorios_calbas` (`verify_jwt` false; fuente en `supabase/functions/`) la llama pg_cron `calbas_recordatorio_pendientes` de lunes a sábado a las 08:00 de CDMX. Según `calbas_pendientes_recordatorio()`: equipos por verificar → quienes verifican (no administradores); verificaciones con 3 días o más de atraso y calibraciones → administradores. También atiende `init`, `prueba` y `no_cumple` (aviso inmediato a los administradores) para usuarios con sesión.
+- La Edge Function `recordatorios_calbas` (`verify_jwt` false; fuente en `supabase/functions/`) la llama pg_cron `calbas_recordatorio_pendientes` de lunes a viernes a las 08:00 de CDMX, salvo días festivos (v8.1: `calbas_private.dia_sin_avisos_calbas`; oficiales de la LFT calculados en `calbas_dias_festivos(anio)` más los de la empresa en `dias_festivos_calbas`, que gestionan los administradores en Mi perfil). Según `calbas_pendientes_recordatorio()`: equipos por verificar → quienes verifican (no administradores); verificaciones con 3 días o más de atraso y calibraciones → administradores. También atiende `init`, `prueba` y `no_cumple` (aviso inmediato a los administradores) para usuarios con sesión.
 - No dispares el cron a mano en horario de producción: insertaría los avisos del día y el envío de las 08:00 los omitiría.
 
 ## Pendientes conocidos

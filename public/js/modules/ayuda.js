@@ -66,7 +66,7 @@ const TEMAS = [
     ['¿Qué son los patrones y por qué no aparece uno al verificar?',
       'Son las referencias contra las que se verifica: **pesas patrón**, termómetros patrón y soluciones buffer. Solo aparecen los patrones **activos y con certificado vigente** del tipo de equipo. Si falta alguno, pide a un administrador que lo registre o actualice en **Patrones**.'],
     ['¿Cómo se imprimen las etiquetas? (administradores)',
-      'En **Equipos** toca **Etiquetas** para generar las de todos los equipos o solo de los tipos que elijas; también puedes imprimir la de un solo equipo desde su fila o su ficha. Se descarga un **PDF tamaño carta**.\nAl imprimir elige **tamaño real / 100 %** para respetar las medidas: 72.6 × 22.2 mm en básculas (logotipo, equipo, código y serie) y 32 × 11.1 mm en termómetros, potenciómetros y micropipetas (logotipo y código).'],
+      'En **Equipos** toca **Etiquetas** para generar las de todos los equipos o solo de los tipos que elijas; también puedes imprimir la de un solo equipo desde su fila o su ficha. Se descarga un **PDF tamaño carta**.\nAl imprimir elige **tamaño real / 100 %** para respetar las medidas: 54.4 × 16.7 mm en básculas (logotipo, equipo, código y serie) y 24 × 8.3 mm en termómetros, potenciómetros y micropipetas (logotipo y código).'],
     ['¿Qué pasa si inactivo un equipo? (administradores)',
       'Deja de aparecer para verificar y en los avisos, pero **conserva todo su historial**. Puedes activarlo de nuevo en cualquier momento desde el botón de encendido de la tabla o desde su ficha. Usa el filtro de estado **Inactivos** para encontrarlo.'],
   ] },
@@ -80,7 +80,7 @@ const TEMAS = [
   ] },
   { id: 'avisos', ico: 'bell-ring', titulo: 'Avisos y notificaciones', preguntas: [
     ['¿Qué avisos envía la aplicación?',
-      'De lunes a sábado a las **8:00 a. m.**:\n- **Quienes verifican:** los equipos que ya toca verificar y los atrasados.\n- **Administradores:** calibraciones por vencer o vencidas y verificaciones con **3 días o más de atraso**.\nAdemás, al momento: cada **«no cumple»** y cada **etiqueta dañada** se avisa a los administradores.'],
+      'De lunes a viernes a las **8:00 a. m.**, excepto días festivos (los oficiales y los que agregue la administración en **Mi perfil → Días festivos**):\n- **Quienes verifican:** los equipos que ya toca verificar y los atrasados.\n- **Administradores:** calibraciones por vencer o vencidas y verificaciones con **3 días o más de atraso**.\nAdemás, al momento: cada **«no cumple»** y cada **etiqueta dañada** se avisa a los administradores.'],
     ['¿Cómo activo los avisos?',
       'Entra a **Mi perfil → Avisos en este dispositivo** y toca **Activar avisos**; acepta el permiso del navegador. Hazlo **en cada dispositivo** donde quieras recibirlos. Con **Enviar aviso de prueba** confirmas que llegan.'],
     ['No me llegan los avisos, ¿qué reviso?',

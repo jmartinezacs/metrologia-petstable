@@ -1,6 +1,6 @@
 // Edge Function: recordatorios_calbas
 // Avisos push (Web Push) de Metrología, con el mismo esquema que Pruebas industriales.
-//  · accion 'recordatorio' (pg_cron, lunes a sábado 08:00 CDMX, con el secreto de
+//  · accion 'recordatorio' (pg_cron, lunes a viernes 08:00 CDMX salvo festivos, con el secreto de
 //    calbas_private.cron_calbas): equipos por verificar → quienes verifican;
 //    verificaciones con 3+ días de atraso y calibraciones → administradores.
 //  · accion 'init' (usuario activo): crea las claves VAPID la primera vez.

@@ -1634,3 +1634,14 @@ input[name="codigo_calbas"]::placeholder { text-transform: none; }
 .tk-ico.t-micropipeta { background: var(--turq-soft); color: var(--turq-strong); }
 .buffers-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 6px; }
 .buffers-grid .opc { font-weight: 600; color: var(--muted); font-size: 12px; }
+
+/* v8.1 · Días festivos (sin recordatorios) */
+.fest-anio { display: flex; align-items: center; justify-content: center; gap: 14px; margin-bottom: 10px; font-size: 17px; }
+.fest-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; max-height: 300px; overflow-y: auto; }
+.fest-lista li { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; font-size: 13px; }
+.fest-fecha { display: flex; flex-direction: column; min-width: 86px; font-weight: 700; }
+.fest-fecha small { font-weight: 500; color: var(--muted); font-size: 11px; }
+.fest-motivo { flex: 1; min-width: 0; }
+.fest-nuevo { display: grid; grid-template-columns: 150px 1fr auto; gap: 10px; align-items: end; }
+.fest-nuevo .field { margin: 0; }
+@media (max-width: 560px) { .fest-nuevo { grid-template-columns: 1fr; } }
