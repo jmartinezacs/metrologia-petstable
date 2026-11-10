@@ -48,6 +48,9 @@ if ($bundleJs -match '</script') { throw 'El código contiene </script>' }
 $css = Read-Text('css/app.css')
 $logo = [Convert]::ToBase64String([IO.File]::ReadAllBytes((Join-Path $Src 'img/logo-petstable.webp')))
 $css = $css.Replace("url('/img/logo-petstable.webp')", "url('data:image/webp;base64,$logo')")
+# Firma de los créditos de Mi perfil (máscara CSS)
+$firma = [Convert]::ToBase64String([IO.File]::ReadAllBytes((Join-Path $Src 'img/firma.png')))
+$css = $css.Replace("url('/img/firma.png')", "url('data:image/png;base64,$firma')")
 if ($css.Contains('/img/')) { throw 'Quedó una referencia a /img/ en el CSS' }
 $themeJs = (Read-Text('js/theme-init.js')).Trim()
 $configJs = (Read-Text('js/config.js')).Trim()
@@ -74,8 +77,10 @@ Swap '  <link rel="stylesheet" href="/css/app.css?v=1.0.0">' "  <style>`n$css</s
 Swap '  <script src="/js/theme-init.js"></script>' "  <script>$themeJs</script>"
 Swap '  <script src="/js/config.js?v=1.0.0"></script>' "  <script>$configJs</script>"
 Swap '  <script type="module" src="/js/app.js?v=1.0.0"></script>' "  <script>$bundleJs</script>"
+# Se revisa sin los data: URI (el base64 de una imagen puede contener «/js/» por azar)
+$sinData = [regex]::Replace($html, 'data:[a-z/+.-]+;base64,[A-Za-z0-9+/=]+', '')
 foreach ($ref in @('/css/', '/js/', '/img/', '/icons/')) {
-  if ($html.Contains($ref)) { throw "Quedó una referencia externa a $ref" }
+  if ($sinData.Contains($ref)) { throw "Quedó una referencia externa a $ref" }
 }
 $html = "<!-- Metrología · Pet's Table — archivo generado por tools/build-single.ps1. Edita las fuentes en public/ y vuelve a generar. -->`n" + $html
 [IO.File]::WriteAllText((Join-Path $Out 'index.html'), $html, $utf8)
@@ -85,6 +90,11 @@ Copy-Item (Join-Path $Src 'manifest.webmanifest') (Join-Path $Out 'manifest.webm
 # Íconos HD del manifiesto (pantalla de inicio y de carga en Android)
 New-Item -ItemType Directory -Force (Join-Path $Out 'icons') | Out-Null
 Copy-Item (Join-Path $Src 'icons\*.png') (Join-Path $Out 'icons') -Force
+# v8.2 · Ilustraciones propias (SVG cacheables) e íconos de notificación (monocromático de Android)
+New-Item -ItemType Directory -Force (Join-Path $Out 'emoji') | Out-Null
+Copy-Item (Join-Path $Src 'emoji\*.svg') (Join-Path $Out 'emoji') -Force
+New-Item -ItemType Directory -Force (Join-Path $Out 'notif') | Out-Null
+Copy-Item (Join-Path $Src 'notif\*.png') (Join-Path $Out 'notif') -Force
 if ($configJs -notmatch 'APP_VERSION:\s*["'']([^"'']+)["'']') { throw 'No se encontró APP_VERSION en config.js' }
 [IO.File]::WriteAllText((Join-Path $Out 'version.json'), "{`"version`":`"$($Matches[1])`"}`n", $utf8)
 Get-Item (@('index.html', 'apple-touch-icon.png', 'sw.js', 'manifest.webmanifest', 'version.json') | ForEach-Object { Join-Path $Out $_ }) | ForEach-Object { '{0,-24} {1,10:N0} bytes' -f $_.Name, $_.Length }

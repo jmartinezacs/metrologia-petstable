@@ -6,11 +6,15 @@ self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
 self.addEventListener('fetch', () => { /* red directa */ });
 
 const ICONO = '/icons/icon-192.png';
+// Ícono pequeño de la barra de estado en Android: silueta blanca de Pet's Table sobre fondo
+// transparente (Android solo usa el canal alfa; con fondo de color se ve un cuadro).
+const BADGE = '/notif/badge-96.png';
 
 async function mostrar(d) {
   await self.registration.showNotification(d.title || 'Metrología', {
     body: d.body || '',
     icon: ICONO,
+    badge: BADGE,
     tag: d.tag || `calbas-${Date.now()}`,
     renotify: true,
     vibrate: [300, 120, 300],

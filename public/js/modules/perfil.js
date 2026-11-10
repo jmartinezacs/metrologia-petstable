@@ -4,8 +4,13 @@
 // =====================================================================
 import {
   sb, state, esc, icon, refreshIcons, toast, checkForm, must, avatarHTML, fotoDe, fmtDateTime, prefs, APP_VERSION,
-  prepararFoto, subirFotoPropia, ganchos, errMsg, push, openModal, confirmDialog, fmtDate, todayISO, pill,
+  prepararFoto, subirFotoPropia, ganchos, errMsg, push, openModal, confirmDialog, fmtDate, todayISO, pill, emoji,
 } from '../core.js';
+
+// Créditos de la plataforma
+const AUTOR = { nombre: 'Javier Martínez González', correo: 'javier.martinez@petstable.mx' };
+// Mosaico de información con ilustración (v8.2)
+const fila = (ilus, label, valor) => `<div class="pf-t"><span class="pf-ico">${emoji(ilus)}</span><div><small>${esc(label)}</small><b>${esc(valor || '—')}</b></div></div>`;
 
 let root;
 let deferredPrompt = null;
@@ -25,27 +30,31 @@ function pintar() {
   const p = state.profile, u = state.session?.user;
   const admin = state.isAdmin;
   const theme = prefs.get('calbas.theme') || 'system';
-  const tile = (ic, k, v) => `<div class="p-tile"><span class="ti">${icon(ic)}</span><small>${esc(k)}</small><b>${esc(v || '—')}</b></div>`;
   root.innerHTML = `
     <section class="page-intro"><div><span class="eyebrow">Cuenta</span><h1>Mi perfil</h1><p>Tus datos de acceso y preferencias.</p></div></section>
-    <section class="profile-hero">
-      <div class="access-photo">${avatarHTML(p.nombre_completo_calbas, fotoDe(p.correo_calbas, p.avatar_url_calbas), 'xl')}<span class="access-check">${icon('badge-check')}</span>
-        ${admin ? `<label for="pf-foto" class="photo-edit" title="Cambiar fotografía" aria-label="Cambiar fotografía">${icon('camera')}</label>
-        <input id="pf-foto" type="file" accept="image/jpeg,image/png,image/webp" class="sr-only">` : ''}</div>
-      <div>
-        <span class="access-badge">${icon(admin ? 'crown' : 'user')} ${admin ? 'Administrador' : 'Usuario'}</span>
+    <div class="pf">
+      <section class="pf-id">
+        <div class="pf-foto">${avatarHTML(p.nombre_completo_calbas, fotoDe(p.correo_calbas, p.avatar_url_calbas), 'xl')}</div>
+        <span class="pf-rol ${admin ? 'admin' : ''}">${icon(admin ? 'crown' : 'user-round')} ${admin ? 'Administrador' : 'Usuario'}</span>
         <h2>${esc(p.nombre_completo_calbas)}</h2>
-        <p class="puesto">${esc(p.puesto_calbas || 'Puesto no registrado')}</p>
-        <span class="mail">${icon('mail')} ${esc(p.correo_calbas)}</span>
+        <p class="pf-puesto">${esc(p.puesto_calbas || 'Puesto no registrado')}</p>
+        <span class="pf-mail">${icon('mail')} ${esc(p.correo_calbas)}</span>
+        ${admin ? `<label class="btn pf-cambiar" for="pf-foto">${icon('camera')} Cambiar fotografía</label>
+        <input id="pf-foto" type="file" accept="image/jpeg,image/png,image/webp" class="sr-only">` : ''}
+      </section>
+      <div class="pf-info">
+        <section class="pf-bloque"><h3 class="pf-sec">${icon('briefcase')} Información laboral</h3>
+          <div class="pf-tiles t2">${fila('gafete', 'Puesto', p.puesto_calbas || 'Sin puesto registrado')}${fila('n_equipos', 'Departamento', p.departamento_calbas || 'Sin departamento')}</div></section>
+        <section class="pf-bloque"><h3 class="pf-sec">${icon('shield-check')} Acceso</h3>
+          <div class="pf-tiles t2">${fila('llave', 'Permisos', admin ? 'Gestión completa de equipos, calibraciones y usuarios' : 'Verificar y consultar los equipos de su departamento')}${fila('reloj', 'Último acceso', fmtDateTime(u?.last_sign_in_at))}</div></section>
+        <section class="pf-bloque" id="avisos-card"><h3 class="pf-sec">${icon('bell')} Avisos en este dispositivo</h3>
+          <div id="avisos-estado" class="avisos">${icon('loader')} Revisando…</div>
+          ${admin ? `<div class="pf-festivos"><span class="pf-ico">${emoji('festivos')}</span><div><b>Días festivos</b><small>Esos días, igual que sábados y domingos, no se envían recordatorios.</small></div>
+            <button type="button" class="btn secondary sm" id="festivos-btn">${icon('calendar-x')} Administrar</button></div>` : ''}</section>
+        <section class="pf-sistema"><span class="brand-logo pf-logo" aria-hidden="true"></span>
+          <div><small>Metrología</small><b>Verificación y calibración de equipos <i aria-hidden="true">|</i> <span>Pet's Table</span></b></div>
+          <span class="pf-ver"><small>Versión</small><b>${esc(APP_VERSION)}</b></span></section>
       </div>
-    </section>
-    <div class="profile-tiles mt">
-      ${tile('briefcase', 'Puesto', p.puesto_calbas || 'Sin puesto registrado')}
-      ${tile('building-2', 'Departamento', p.departamento_calbas || 'Sin departamento')}
-      ${tile('shield-check', 'Permisos', admin ? 'Gestión completa de equipos, calibraciones y usuarios' : 'Verificar y consultar los equipos de su departamento')}
-      ${tile('clock', 'Último acceso', fmtDateTime(u?.last_sign_in_at))}
-      ${tile('mail', 'Correo', p.correo_calbas)}
-      ${tile('info', 'Versión del sistema', APP_VERSION)}
     </div>
     <div class="grid grid-2 mt">
       <div class="card">
@@ -77,13 +86,18 @@ function pintar() {
         <p class="hint mt">Para cambiar tu puesto, rol o departamento, solicítalo a un administrador.</p>
       </div>
     </div>
-    <div class="card mt" id="avisos-card">
-      <div class="card-head"><div><h3>${icon('bell-ring')} Avisos en este dispositivo</h3>
-        <p>${admin ? 'Cada mañana de lunes a viernes (8:00, excepto días festivos) te avisamos de las calibraciones por vencer o vencidas y de las verificaciones con 3 días o más de atraso. También recibes al momento cada «no cumple».'
-          : 'Cada mañana de lunes a viernes (8:00, excepto días festivos) te avisamos de los equipos que te toca verificar y de los que ya están atrasados.'}</p></div>
-        ${admin ? `<button type="button" class="btn secondary sm" id="festivos-btn">${icon('calendar-x')} Días festivos</button>` : ''}</div>
-      <div id="avisos-estado" class="avisos-estado">${icon('loader')} Revisando…</div>
-    </div>`;
+    <section class="cr mt" aria-labelledby="cr-t">
+      <div class="cr-foto">${avatarHTML(AUTOR.nombre, fotoDe(AUTOR.correo, p.correo_calbas === AUTOR.correo ? p.avatar_url_calbas : null), 'xl')}</div>
+      <div class="cr-cuerpo">
+        <span class="cr-eyebrow">${icon('sparkles')} Desarrollado por</span>
+        <h3 id="cr-t">${esc(AUTOR.nombre)}</h3>
+        <p class="cr-rol">Creador y desarrollador de la plataforma</p>
+        <p class="cr-txt">Concibió, diseñó, desarrolló e implementó Metrología: las verificaciones internas y calibraciones externas, la base de datos y sus permisos, las etiquetas, los avisos y la experiencia en escritorio y móvil.</p>
+        <ul class="cr-etapas" aria-label="Participación"><li>Conceptualización</li><li>Diseño</li><li>Desarrollo</li><li>Implementación</li></ul>
+      </div>
+      <figure class="cr-firma"><span class="cr-firma-img" role="img" aria-label="Firma de ${esc(AUTOR.nombre)}"></span>
+        <figcaption><b>${esc(AUTOR.nombre)}</b><small>Autor de la plataforma</small></figcaption></figure>
+    </section>`;
   refreshIcons();
   pintarAvisos();
 
@@ -186,15 +200,21 @@ async function pintarAvisos() {
   const box = root?.querySelector('#avisos-estado');
   if (!box) return;
   const est = await push.estado();
+  if (!root?.contains(box)) return;
+  const horario = state.isAdmin
+    ? 'Cada mañana de lunes a viernes (8:00, excepto días festivos) te avisamos de las calibraciones por vencer o vencidas y de las verificaciones con 3 días o más de atraso. También recibes al momento cada «no cumple».'
+    : 'Cada mañana de lunes a viernes (8:00, excepto días festivos) te avisamos de los equipos que te toca verificar y de los que ya están atrasados.';
+  // [ilustración, estado visual (on · off · pend · info), título, texto]
   const msg = {
-    activo: [`${icon('bell-ring')} <b>Activados</b> en este dispositivo.`, 'ok'],
-    inactivo: [`${icon('bell-off')} <b>Desactivados.</b> Actívalos para recibir los recordatorios.`, 'warn'],
-    bloqueado: [`${icon('bell-off')} <b>Bloqueados por el navegador.</b> Permite las notificaciones de este sitio en la configuración del navegador y vuelve a intentarlo.`, 'bad'],
-    instalar: [`${icon('smartphone')} En iPhone y iPad primero <b>instala la app</b> (Compartir → Agregar a pantalla de inicio) y ábrela desde el ícono.`, 'warn'],
-    'no-soportado': [`${icon('circle-alert')} Este navegador no admite notificaciones.`, 'bad'],
+    activo: ['n_avisos', 'on', 'Avisos activados', horario],
+    inactivo: ['n_avisos', 'pend', 'Avisos desactivados', `Actívalos para recibir los recordatorios. ${horario}`],
+    bloqueado: ['n_alerta', 'off', 'Bloqueados por el navegador', 'Permite las notificaciones de este sitio en la configuración del navegador y vuelve a intentarlo.'],
+    instalar: ['celular', 'info', 'Instala la app primero', 'En iPhone y iPad, toca Compartir → Agregar a pantalla de inicio y abre Metrología desde el ícono (iOS 16.4 o posterior).'],
+    'no-soportado': ['n_alerta', 'off', 'Sin notificaciones', 'Este navegador no admite notificaciones.'],
   }[est];
-  box.className = `avisos-estado ${msg[1]}`;
-  box.innerHTML = `<span>${msg[0]}</span><div class="btns">
+  box.className = `avisos ${msg[1]}`;
+  box.innerHTML = `<span class="avisos-ico">${emoji(msg[0])}</span><div class="avisos-txt"><b>${esc(msg[2])}</b><p>${esc(msg[3])}</p></div>
+    <div class="avisos-acc">
     ${est === 'inactivo' ? `<button type="button" class="btn navy" data-av="on">${icon('bell-ring')} Activar avisos</button>` : ''}
     ${est === 'activo' ? `<button type="button" class="btn teal" data-av="test">${icon('send')} Enviar aviso de prueba</button>
       <button type="button" class="btn secondary" data-av="off">${icon('bell-off')} Desactivar</button>` : ''}</div>`;

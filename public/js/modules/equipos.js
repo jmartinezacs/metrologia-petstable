@@ -9,7 +9,7 @@ import {
   DataTable, emptyState, pill, fmtDate, fmtVal, fmtSigned, calPill, verPill, dictamenPill, getDepartamentos, getTipos,
   invalidarCatalogos, tipoIcono, CLASES, CRITERIOS, ganchos, navigate, sanitizeSearch, debounce, prefs, abrirCertificado,
   U, convertirMasa, TIPO_BASCULA, METODOS, dictamenConAjuste,
-  TIPOS_BASCULA, tipoBasculaSugerido, errMsg,
+  TIPOS_BASCULA, tipoBasculaSugerido, errMsg, emoji, ilusTipo, pillIlus,
 } from '../core.js';
 import { dialogoEtiquetas, etiquetaIndividual } from './etiquetas.js';
 
@@ -55,15 +55,15 @@ export default {
     table = new DataTable(el.querySelector('#eq-table'), {
       rowKey: 'id_calbas',
       columns: [
-        { label: 'Equipo', render: (e) => `<div class="eq-cell"><span class="eq-ico t-${esc(e.tipo_clave_calbas.toLowerCase())}">${icon(tipoIcono(e.tipo_clave_calbas, e.icono_calbas))}</span>
+        { label: 'Equipo', render: (e) => `<div class="eq-cell"><span class="eq-ico ilus t-${esc(e.tipo_clave_calbas.toLowerCase())}">${emoji(ilusTipo(e))}</span>
             <div><b class="cell-main">${esc(e.codigo_calbas)}</b><span class="cell-sub">${esc(e.tipo_nombre_calbas)}</span></div></div>` },
         { label: 'Ubicación', render: (e) => `<b class="cell-main">${esc(e.departamento_calbas || '—')}</b><span class="cell-sub">${esc(e.ubicacion_calbas || '')}</span>` },
         { label: 'Rango', render: (e) => (e.rango_max_calbas != null ? `<span class="mono">${fmtVal(e.rango_min_calbas ?? 0)}–${fmtVal(e.rango_max_calbas)} ${esc(U(e.unidad_calbas))}</span>` : `<span class="mono">${esc(U(e.unidad_calbas))}</span>`) },
-        { label: 'Verificación', render: (e) => `${verPill(e.estado_verificacion_calbas)}<span class="cell-sub">${e.requiere_verificacion_calbas === false ? 'Sin verificación interna' : e.ultima_verificacion_calbas ? `Última ${fmtDate(e.ultima_verificacion_calbas)} · ${e.ultimo_dictamen_calbas === 'NO_CUMPLE' ? 'No cumple' : 'Cumple'}` : (e.frecuencia_verificacion_dias_calbas === 1 ? "Diaria" : `Cada ${e.frecuencia_verificacion_dias_calbas} días`)}</span>` },
+        { label: 'Verificación', render: (e) => `${verPill(e.estado_verificacion_calbas)}<span class="cell-sub">${e.requiere_verificacion_calbas === false ? 'Sin verificación interna' : e.ultima_verificacion_calbas ? `Última ${fmtDate(e.ultima_verificacion_calbas)} · ${e.ultimo_dictamen_calbas === 'NO_CUMPLE' ? 'No cumple' : 'Cumple'}` : (e.frecuencia_verificacion_dias_calbas === 1 ? "Diaria" : `Cada ${e.frecuencia_verificacion_dias_calbas} días`)}</span>${e.activo_calbas && e.requiere_verificacion_calbas !== false && e.proxima_verificacion_calbas ? `<span class="prox-ver st-${esc(e.estado_verificacion_calbas)}">${icon('calendar-clock')} Próxima ${fmtDate(e.proxima_verificacion_calbas)}</span>` : ''}` },
         { label: 'Calibración', render: (e) => `${calPill(e.estado_calibracion_calbas)}<span class="cell-sub">${e.vencimiento_calibracion_calbas ? `Vence ${fmtDate(e.vencimiento_calibracion_calbas)}` : 'Sin certificado'}</span>` },
         { label: '', cls: 'actions', render: (e) => `<div class="row-actions">
             <button class="icon-btn" data-ficha="${e.id_calbas}" title="Ficha del equipo" aria-label="Ficha del equipo">${icon('file-text')}</button>
-            ${e.activo_calbas && e.requiere_verificacion_calbas === false ? '' : e.activo_calbas ? `<button class="icon-btn" data-verif="${e.id_calbas}" data-origen="${e.origen_calbas}" title="Registrar verificación" aria-label="Registrar verificación">${icon('clipboard-plus')}</button>` : pill('Inactivo', 'gray')}
+            ${e.activo_calbas && e.requiere_verificacion_calbas === false ? '' : e.activo_calbas ? `<button class="icon-btn" data-verif="${e.id_calbas}" data-origen="${e.origen_calbas}" title="Registrar verificación" aria-label="Registrar verificación">${icon('clipboard-plus')}</button>` : pillIlus('Inactivo', 'gray', 'inactivo')}
             ${state.isAdmin ? `<button class="icon-btn" data-etq="${e.id_calbas}" title="Etiqueta (PDF)" aria-label="Etiqueta en PDF">${icon('tag')}</button>
             <button class="icon-btn" data-editar="${e.id_calbas}" title="Editar" aria-label="Editar">${icon('pencil')}</button>
             <button class="icon-btn ${e.activo_calbas ? 'danger-hover' : 'ok-hover'}" data-activo="${e.id_calbas}" title="${e.activo_calbas ? 'Inactivar' : 'Activar'}" aria-label="${e.activo_calbas ? 'Inactivar equipo' : 'Activar equipo'}">${icon(e.activo_calbas ? 'power-off' : 'power')}</button>` : ''}</div>` },
@@ -110,18 +110,18 @@ function pintarTipos() {
   const strip = root.querySelector('#eq-tipos');
   const activos = todos.filter((e) => e.activo_calbas);
   const grupos = {};
-  activos.forEach((e) => { (grupos[e.tipo_clave_calbas] ||= { n: 0, alerta: 0, nombre: e.tipo_nombre_calbas, ico: tipoIcono(e.tipo_clave_calbas, e.icono_calbas) }).n++; });
+  activos.forEach((e) => { (grupos[e.tipo_clave_calbas] ||= { n: 0, alerta: 0, nombre: e.tipo_nombre_calbas, ico: ilusTipo({ tipo_clave_calbas: e.tipo_clave_calbas, nombre_calbas: e.tipo_clave_calbas === 'BASCULA' ? '' : e.tipo_nombre_calbas }) }).n++; });
   activos.forEach((e) => { if (e.estado_calibracion_calbas === 'vencida' || e.ultimo_dictamen_calbas === 'NO_CUMPLE') grupos[e.tipo_clave_calbas].alerta++; });
   const sel = root.querySelector('#eq-tipo').value;
   const alertasTot = Object.values(grupos).reduce((s, g) => s + g.alerta, 0);
   // Tarjeta de filtro por tipo: ícono, nombre, total y estado (alertas o al día)
   const chip = (k, ico, cls, n, nombre, alerta) => `<button class="type-card ${sel === k ? 'on' : ''}" data-tipo="${esc(k)}" aria-pressed="${sel === k}">
-      <span class="tk-ico ${cls}">${icon(ico)}</span>
+      <span class="tk-ico ilus ${cls}">${emoji(ico)}</span>
       <span class="tk-body"><span class="tk-name">${esc(nombre)}</span>
         <span class="tk-meta"><b>${n}</b> ${n === 1 ? 'equipo' : 'equipos'}</span>
         ${alerta ? `<span class="tk-state bad" title="Calibración vencida o último dictamen no cumple">${icon('triangle-alert')} ${alerta} con alerta</span>` : `<span class="tk-state ok">${icon('circle-check')} Al día</span>`}</span>
       <span class="tk-check">${icon('check')}</span></button>`;
-  strip.innerHTML = chip('', 'layers', '', activos.length, 'Todos los equipos', alertasTot)
+  strip.innerHTML = chip('', 'n_equipos', '', activos.length, 'Todos los equipos', alertasTot)
     + Object.entries(grupos).map(([k, g]) => chip(k, g.ico, `t-${k.toLowerCase()}`, g.n, k === 'BASCULA' ? 'Básculas' : g.nombre, g.alerta)).join('');
   refreshIcons();
 }
@@ -197,9 +197,9 @@ async function abrirFicha(id) {
     title: `${e.codigo_calbas} · ${e.tipo_nombre_calbas}`,
     subtitle: [e.ubicacion_calbas, e.departamento_calbas].filter(Boolean).join(' · '), size: 'lg',
     body: `<div class="ficha-hero">
-        <span class="eq-ico xl t-${esc(e.tipo_clave_calbas.toLowerCase())}">${icon(tipoIcono(e.tipo_clave_calbas, e.icono_calbas))}</span>
+        <span class="eq-ico xl ilus t-${esc(e.tipo_clave_calbas.toLowerCase())}">${emoji(ilusTipo(e))}</span>
         <div class="fh-txt"><b>${esc(e.codigo_calbas)}</b><span>${esc([e.tipo_nombre_calbas, e.departamento_calbas, e.ubicacion_calbas].filter(Boolean).join(' · '))}</span>
-          <div class="ficha-status">${verPill(e.estado_verificacion_calbas)} ${calPill(e.estado_calibracion_calbas)} ${e.activo_calbas ? pill('Activo', 'info') : pill('Inactivo', 'gray')}</div></div>
+          <div class="ficha-status">${verPill(e.estado_verificacion_calbas)} ${calPill(e.estado_calibracion_calbas)} ${e.activo_calbas ? pillIlus('Activo', 'info', 'activo') : pillIlus('Inactivo', 'gray', 'inactivo')}</div></div>
         <div class="fh-actions">
           ${e.activo_calbas && e.requiere_verificacion_calbas !== false ? `<button type="button" class="btn orange sm" data-go="#/verificar?equipo=${e.id_calbas}">${icon('clipboard-plus')} Verificar</button>` : ''}
           <button type="button" class="btn teal sm" data-go="#/historial?equipo=${e.id_calbas}">${icon('history')} Historial</button>
@@ -247,7 +247,7 @@ export async function abrirFormEquipo(eq = null) {
     tipo = await openModal({
       title: 'Nuevo equipo', subtitle: 'Selecciona el tipo de instrumento a registrar.', size: 'md', confirmDiscard: false, submitText: 'Continuar',
       body: `<div class="tipo-grid">${tipos.filter((t) => t.activo_calbas !== false).map((t, i) => `<label class="tipo-opt"><input type="radio" name="tipo" value="${esc(t.clave_calbas)}" ${i === 0 ? 'checked' : ''}>
-        <span class="tipo-card"><span class="eq-ico lg t-${esc(t.clave_calbas.toLowerCase())}">${icon(tipoIcono(t.clave_calbas, t.icono_calbas))}</span>
+        <span class="tipo-card"><span class="eq-ico lg ilus t-${esc(t.clave_calbas.toLowerCase())}">${emoji(ilusTipo(t))}</span>
           <span class="tipo-txt"><b>${esc(t.nombre_calbas)}</b><span>${esc(t.magnitud_calbas)} · ${esc(t.unidades_calbas.map(U).join(', '))}</span></span>
           <span class="tipo-check">${icon('check')}</span></span></label>`).join('')}</div>`,
       onSubmit: ({ form }) => tipos.find((t) => t.clave_calbas === form.elements.tipo.value),
@@ -268,7 +268,7 @@ const fld = (name, label, val, attrs = '', req = false, ayuda = '', sufijo = '')
 // «data-neg»: admite negativos; sin inputmode="decimal" porque ese teclado del celular no trae el signo «−»
 const num = (name, label, val, req = false, extra = '', ayuda = '', sufijo = '') => fld(name, label, val, `type="number" step="any" ${extra.includes('data-neg') ? '' : 'inputmode="decimal"'} ${extra}`, req, ayuda, sufijo);
 const seccion = (ico, titulo, sub = '') => `<div class="form-section full"><span class="fs-ico">${icon(ico)}</span><div><b>${esc(titulo)}</b>${sub ? `<small>${esc(sub)}</small>` : ''}</div></div>`;
-const banner = (tipo, editar, codigo) => `<div class="form-banner"><span class="eq-ico lg t-${esc(tipo.clave_calbas.toLowerCase())}">${icon(tipoIcono(tipo.clave_calbas, tipo.icono_calbas))}</span>
+const banner = (tipo, editar, codigo) => `<div class="form-banner"><span class="eq-ico lg ilus t-${esc(tipo.clave_calbas.toLowerCase())}">${emoji(ilusTipo(tipo))}</span>
   <div><b>${editar ? `Editando ${esc(codigo)}` : `Alta de equipo: ${esc(tipo.nombre_calbas)}`}</b><span>${esc(tipo.magnitud_calbas)} · unidades ${esc(tipo.unidades_calbas.map(U).join(', '))}</span></div></div>`;
 // Próximo código automático (vista previa; la base de datos asigna el definitivo)
 function siguienteCodigo(pref, digitos = 2) {

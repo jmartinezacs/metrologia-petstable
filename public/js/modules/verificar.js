@@ -10,7 +10,7 @@
 import {
   sb, esc, icon, refreshIcons, toast, errMsg, must, checkForm, pill, fmtDate, fmtVal, fmtSigned, todayISO,
   aGramos, factorEMT, estadistica, U, convertirMasa, CLASES, CRITERIOS, tipoIcono, navigate, dictamenPill, emptyState,
-  avisar, openModal, addDays,
+  avisar, openModal, addDays, emoji, ilusTipo,
 } from '../core.js';
 import { cargarEquipos } from './equipos.js';
 
@@ -124,7 +124,7 @@ async function elegir(id) {
 }
 
 function fichaCorta(e) {
-  return `<div class="eq-mini"><span class="eq-ico t-${esc(e.tipo_clave_calbas.toLowerCase())}">${icon(tipoIcono(e.tipo_clave_calbas, e.icono_calbas))}</span>
+  return `<div class="eq-mini"><span class="eq-ico ilus t-${esc(e.tipo_clave_calbas.toLowerCase())}">${emoji(ilusTipo(e))}</span>
     <div><b>${esc(e.codigo_calbas)} · ${esc(e.tipo_nombre_calbas)}</b><span>${esc([e.departamento_calbas, e.ubicacion_calbas].filter(Boolean).join(' · '))}</span>
     <span>Última verificación: ${e.ultima_verificacion_calbas ? `${fmtDate(e.ultima_verificacion_calbas)} (${e.ultimo_dictamen_calbas === 'NO_CUMPLE' ? 'no cumple' : 'cumple'})` : 'ninguna'}</span></div></div>`;
 }
@@ -135,7 +135,7 @@ const leTocaVerificar = (e) => !e.proxima_verificacion_calbas || e.proxima_verif
 function sinUsoHTML(e) {
   if (!leTocaVerificar(e)) return '';
   const hoyMarcado = e.ultimo_sin_uso_calbas === todayISO();
-  return `<div class="sin-uso ${hoyMarcado ? 'ok' : ''}">${icon(hoyMarcado ? 'circle-check' : 'calendar-off')}
+  return `<div class="sin-uso ${hoyMarcado ? 'ok' : ''}">${emoji(hoyMarcado ? 'cumple' : 'sin_uso', 'sin-uso-ilus')}
     <span>${hoyMarcado ? '<b>Hoy está registrado como día sin uso.</b> Si se llega a usar, verifícalo normalmente.' : '<b>¿Hoy no se usó este equipo?</b> Regístralo en lugar de la verificación; no contará como atraso.'}</span>
     ${hoyMarcado ? '' : `<button type="button" class="btn outline sm" data-sin-uso>${icon('calendar-off')} No se usó</button>`}</div>`;
 }
@@ -170,7 +170,7 @@ function pieHTML() {
   return `<div class="form-grid mt">
       <div class="field"><label for="v-fecha">Fecha <span class="req">*</span></label><input id="v-fecha" name="fecha" type="date" value="${hoy}" max="${hoy}" required></div>
       <div class="field full"><label for="v-obs">Observaciones</label><textarea id="v-obs" name="obs" rows="2" maxlength="500" placeholder="Sin observaciones"></textarea></div>
-      <label class="switch-row full etq-switch"><span><b>${icon('tag')} Etiqueta dañada</b><small>Márcalo si la etiqueta de identificación está rota, ilegible o se desprendió. Se avisará a los administradores para reemplazarla.</small></span><input type="checkbox" name="etiqueta"></label>
+      <label class="switch-row full etq-switch"><span><b>${emoji('etiqueta_danada', 'xs')} Etiqueta dañada</b><small>Márcalo si la etiqueta de identificación está rota, ilegible o se desprendió. Se avisará a los administradores para reemplazarla.</small></span><input type="checkbox" name="etiqueta"></label>
     </div>
     <div class="form-actions"><button type="submit" class="btn primary lg" id="v-save">${icon('save')} Registrar verificación</button></div>`;
 }
@@ -187,7 +187,7 @@ function multipuntoHTML() {
   // Un patrón (buffer certificado) por punto; se preselecciona el que tiene ese valor nominal
   const pick = (r) => ctx.pats.find((p) => p.valor_nominal_calbas != null && Math.abs(Number(p.valor_nominal_calbas) - Number(r)) < 1e-9)?.id_calbas;
   const opts = (sel) => `<option value="">${ctx.pats.length ? 'Selecciona…' : 'No hay patrones vigentes'}</option>${ctx.pats.map((p) => `<option value="${p.id_calbas}" ${p.id_calbas === sel ? 'selected' : ''}>${esc(p.codigo_calbas)} · ${esc(p.descripcion_calbas)}${p.lote_calbas ? ` · lote ${esc(p.lote_calbas)}` : ''}</option>`).join('')}`;
-  return `<h4 class="section-label">Buffers certificados utilizados</h4>
+  return `<h4 class="section-label con-ilus">${emoji('buffer')} Buffers certificados utilizados</h4>
     <div class="buffers-grid">
       ${puntos.map((r, i) => `<div class="field"><label for="v-pb${i}">Buffer ${esc(r)} ${bufferOpcional(i, puntos.length) ? '<span class="opc">(opcional)</span>' : '<span class="req">*</span>'}</label>
         <select id="v-pb${i}" name="pb${i}" data-pb="${i}" ${bufferOpcional(i, puntos.length) ? '' : 'required'}>${opts(bufferOpcional(i, puntos.length) ? '' : pick(r))}</select></div>`).join('')}
@@ -275,7 +275,13 @@ function preview() {
   const box = root?.querySelector('#v-prev');
   if (!box) return;
   const card = (estado, items, nota) => {
-    box.innerHTML = `<div class="prev-head"><div><span class="eyebrow">Vista previa</span><h3>Resultado metrológico</h3></div>${estado}</div>
+    // Ilustración del resultado; solo se anima cuando el resultado cambia (no en cada tecla)
+    const res = estado.includes('pill ok') ? 'cumple' : estado.includes('pill bad') ? (/ajuste: cumple/.test(nota) ? 'ajustado' : 'no_cumple') : '';
+    if (res && res !== box.dataset.res) box.dataset.t = Date.now();
+    box.dataset.res = res;
+    // Si se vuelve a pintar mientras anima (siguiente tecla), la animación continúa donde iba
+    const ms = Date.now() - Number(box.dataset.t || 0), anima = res && ms < 450;
+    box.innerHTML = `<div class="prev-head">${res ? `<span class="prev-ilus ${anima ? 'cambia' : ''}"${anima ? ` style="--retraso:-${ms}ms"` : ''}>${emoji(res)}</span>` : ''}<div><span class="eyebrow">Vista previa</span><h3>Resultado metrológico</h3></div>${estado}</div>
       <div class="prev-grid">${items.map(([k, v, s]) => `<div class="prev-item"><small>${esc(k)}</small><b class="mono">${esc(v)}</b>${s ? `<span>${esc(s)}</span>` : ''}</div>`).join('')}</div>
       <p class="hint">${esc(nota)}</p>`;
     refreshIcons();

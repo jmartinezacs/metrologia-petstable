@@ -268,12 +268,58 @@ export function bindCounters(root) {
 }
 
 // ---------- Estados vacíos ----------
+// v8.2 · Ilustraciones propias a color (public/emoji/<slug>.svg, generadas desde
+// fuentes/ilustraciones.src). Archivos cacheables: nunca se incrustan en el HTML.
+export const emoji = (slug, cls = '') => `<img class="emoji ${cls}" src="/emoji/${slug}.svg" alt="" aria-hidden="true" loading="lazy" decoding="async">`;
+// Ilustración del tipo de equipo (mismo color que su tipo desde v8.0)
+export function ilusTipo(x = {}) {
+  const clave = String(x.tipo_clave_calbas ?? x.clave_calbas ?? '').toUpperCase();
+  const nombre = String(x.tipo_nombre_calbas ?? x.nombre_calbas ?? '').toLowerCase();
+  if (clave === 'BASCULA') return /anal/.test(nombre) ? 'bascula_analitica' : /mesa/.test(nombre) ? 'bascula_mesa' : 'bascula_plataforma';
+  return { TERMOMETRO: 'termometro', POTENCIOMETRO: 'potenciometro', MICROPIPETA: 'micropipeta' }[clave] || 'equipo_generico';
+}
+// Ilustración de los estados vacíos según el ícono pedido
+const ILUS_VACIO = {
+  'badge-check': 'cal_vigente', 'circle-check-big': 'cumple', 'file-badge': 'n_calibraciones', gauge: 'n_equipos', 'search-x': 'n_bitacora',
+  thermometer: 'patron_ref', weight: 'n_patrones', 'building-2': 'n_equipos', history: 'reloj', inbox: 'n_bitacora', users: 'personas',
+};
 export function emptyState({ ico = 'inbox', title, text = '', action = '' }) {
-  return `<div class="empty"><div class="empty-ico">${icon(ico)}</div><b>${esc(title)}</b>${text ? `<p>${esc(text)}</p>` : ''}${action}</div>`;
+  return `<div class="empty"><div class="empty-ico${ILUS_VACIO[ico] ? ' ilus' : ''}">${ILUS_VACIO[ico] ? emoji(ILUS_VACIO[ico]) : icon(ico)}</div><b>${esc(title)}</b>${text ? `<p>${esc(text)}</p>` : ''}${action}</div>`;
 }
 export function errorState(err, retryAction = 'retry') {
-  return `<div class="empty error"><div class="empty-ico">${icon('wifi-off')}</div><b>No se pudo cargar la información</b><p>${esc(errMsg(err))}</p>
+  return `<div class="empty error"><div class="empty-ico ilus">${emoji('n_alerta')}</div><b>No se pudo cargar la información</b><p>${esc(errMsg(err))}</p>
     <button class="btn secondary" data-action="${retryAction}">${icon('refresh-cw')} Reintentar</button></div>`;
+}
+
+// ---------- Indicadores (.kx) ----------
+// tono: orange, green, red, blue o violet. ilus: ilustración (public/emoji). texto: el valor es una palabra.
+// barra: porcentaje 0 a 100. go: destino al pulsar (cada módulo lo atiende con [data-go]).
+export function kpiHTML({ tono = 'orange', ico = 'gauge', ilus = '', label, valor, desc = '', go = '', texto = false, barra = null }) {
+  const link = go ? ` data-go="${esc(go)}" role="link" tabindex="0"` : '';
+  return `<div class="kx t-${tono}${texto ? ' texto' : ''}${go ? ' go' : ''}"${link}>
+    <span class="kx-ico${ilus ? ' ilus-box' : ''}" aria-hidden="true">${ilus ? emoji(ilus, 'ilus') : icon(ico)}</span>
+    <div class="kx-top"><small>${esc(label)}</small></div>
+    <strong${texto ? '' : ' data-cifra'} title="${esc(valor)}">${esc(valor)}</strong>${desc ? `<span class="kx-desc">${esc(desc)}</span>` : ''}
+    ${barra !== null ? `<span class="kx-barra" aria-hidden="true"><i style="width:${Math.max(0, Math.min(100, barra))}%"></i></span>` : ''}
+    ${go ? `<span class="kx-go">Ver detalle ${icon('arrow-right')}</span>` : ''}</div>`;
+}
+// Las cifras de los indicadores cuentan desde 0 (1,832 · 95.0 % · 64%). Sin animación si el usuario la reduce.
+export function animarCifras(raiz) {
+  if (!raiz || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  raiz.querySelectorAll('[data-cifra]').forEach((el) => {
+    const m = el.textContent.trim().match(/^([\d,]+)(\.\d+)?(\s?%?)$/);
+    if (!m) return;
+    const fin = Number(`${m[1].replace(/,/g, '')}${m[2] || ''}`), dec = m[2] ? m[2].length - 1 : 0, suf = m[3];
+    if (!fin) return;
+    const fmt = new Intl.NumberFormat('es-MX', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+    const t0 = performance.now(), dur = 900;
+    const paso = (t) => {
+      const k = Math.min(1, (t - t0) / dur), e = 1 - (1 - k) ** 3;
+      el.textContent = `${fmt.format(fin * e)}${suf}`;
+      if (k < 1 && el.isConnected) requestAnimationFrame(paso);
+    };
+    requestAnimationFrame(paso);
+  });
 }
 
 // ---------- Tabla con paginación y orden en servidor ----------
@@ -377,11 +423,14 @@ export function paged(q, { from, to, sort }, extraOrder = []) {
 
 
 // ---------- Gráficas ----------
+// v8.2: base visual de Ruta de calidad (degradados, dona con cifra al centro,
+// etiquetas de datos, tooltip oscuro, paleta categórica y vista ampliada).
 const charts = new Set();
+const chartConfigs = new WeakMap();
 export function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
 export const PALETTE = ['#F58020', '#1BC7C7', '#0B2235', '#1BB56F', '#7A5BE6', '#E0464E', '#FFB020', '#5B8DEF'];
-// Etiqueta de datos: el valor centrado dentro de cada barra o segmento de pastel
-// (se dibuja en el canvas, así que también aparece al copiar la gráfica)
+// Etiqueta de datos: el valor dentro de cada barra o segmento (se dibuja en el canvas,
+// así que también aparece al guardar la imagen). Si no cabe, va en una píldora.
 const etiquetasDatos = {
   id: 'calbasEtiquetas',
   afterDatasetsDraw(chart) {
@@ -390,7 +439,7 @@ const etiquetasDatos = {
     const { ctx } = chart;
     const horiz = chart.options.indexAxis === 'y';
     ctx.save();
-    ctx.font = '800 11px Inter, Segoe UI, system-ui, sans-serif';
+    ctx.font = `800 ${chart.canvas.dataset.zoom ? 15 : 11}px Inter, Segoe UI, system-ui, sans-serif`;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     chart.data.datasets.forEach((ds, di) => {
       const meta = chart.getDatasetMeta(di);
@@ -398,7 +447,10 @@ const etiquetasDatos = {
       meta.data.forEach((el, i) => {
         const v = Number(ds.data[i]);
         if (!v || el.hidden) return;
-        const label = new Intl.NumberFormat('es-MX').format(v);
+        // _porcentaje: el segmento muestra su proporción del total (pastel y dona)
+        const total = ds._porcentaje ? ds.data.reduce((s, n) => s + Number(n || 0), 0) : 0;
+        const label = ds._porcentaje ? `${new Intl.NumberFormat('es-MX', { maximumFractionDigits: 1 }).format((v / total) * 100)} %`
+          : `${new Intl.NumberFormat('es-MX', { maximumFractionDigits: 1 }).format(v)}${ds._sufijo || ''}`;
         let x, y, dentro = true;
         if (tipo === 'bar') {
           const p = el.getProps(['x', 'y', 'base'], true);
@@ -406,19 +458,85 @@ const etiquetasDatos = {
           const ancho = ctx.measureText(label).width + 6;
           dentro = largo >= (horiz ? ancho : 16);
           if (dentro) { x = horiz ? (p.x + p.base) / 2 : p.x; y = horiz ? p.y : (p.y + p.base) / 2; }
-          else { x = horiz ? p.x + ancho / 2 + 2 : p.x; y = horiz ? p.y : p.y - 9; }
+          else { x = horiz ? p.x + ancho / 2 + 8 : p.x; y = horiz ? p.y : p.y - 13; }
         } else {
           if (el.circumference < 0.12) return;
+          // Dona con cifra al centro: el segmento dominante no repite la cifra
+          if (ds._centro && el.circumference > Math.PI * 1.6) return;
           ({ x, y } = el.tooltipPosition(true));
         }
         if (dentro) {
-          ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(9, 13, 18, .45)'; ctx.lineJoin = 'round';
-          ctx.strokeText(label, x, y);
+          ctx.shadowColor = 'rgba(9, 13, 18, .45)'; ctx.shadowBlur = 4; ctx.shadowOffsetY = 1;
           ctx.fillStyle = '#FFFFFF';
-        } else ctx.fillStyle = cssVar('--text') || '#172431';
-        ctx.fillText(label, x, y);
+          ctx.fillText(label, x, y);
+          ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+        } else {
+          const w = ctx.measureText(label).width + 12, h = chart.canvas.dataset.zoom ? 22 : 18;
+          const col = Array.isArray(ds._color) ? ds._color[i] : (ds._color || cssVar('--muted'));
+          ctx.beginPath(); ctx.roundRect(x - w / 2, y - h / 2, w, h, h / 2);
+          ctx.fillStyle = cssVar('--card') || '#fff'; ctx.fill();
+          ctx.lineWidth = 1.5; ctx.strokeStyle = typeof col === 'string' ? col : '#94A3B8'; ctx.stroke();
+          ctx.fillStyle = cssVar('--text') || '#172431';
+          ctx.fillText(label, x, y + .5);
+        }
       });
     });
+    ctx.restore();
+  },
+};
+// Color hexadecimal → rgba (para degradados); otros formatos se devuelven igual
+export function rgba(hex, a = 1) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || '').trim());
+  if (!m) return hex;
+  const n = parseInt(m[1], 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
+}
+// Mezcla con blanco (0–1): tono claro del mismo color para la base de las barras
+function aclarar(hex, k) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || '').trim());
+  if (!m) return hex;
+  const n = parseInt(m[1], 16), f = (c) => Math.round(c + (255 - c) * k);
+  return `rgb(${f((n >> 16) & 255)}, ${f((n >> 8) & 255)}, ${f(n & 255)})`;
+}
+const colorDe = (col, i) => (Array.isArray(col) ? col[i % col.length] : col);
+function degradadoBarra(c, col, horiz) {
+  const base = colorDe(col, c.dataIndex);
+  const area = c.chart.chartArea;
+  if (!area || typeof base !== 'string' || !base.startsWith('#')) return base;
+  const g = horiz ? c.chart.ctx.createLinearGradient(area.left, 0, area.right, 0) : c.chart.ctx.createLinearGradient(0, area.bottom, 0, area.top);
+  g.addColorStop(0, aclarar(base, 0.4));
+  g.addColorStop(1, base);
+  return g;
+}
+function degradadoArea(c, col) {
+  const area = c.chart.chartArea;
+  if (!area || typeof col !== 'string') return rgba(col, 0.12);
+  const g = c.chart.ctx.createLinearGradient(0, area.top, 0, area.bottom);
+  g.addColorStop(0, rgba(col, 0.26));
+  g.addColorStop(1, rgba(col, 0));
+  return g;
+}
+// Dona: cifra principal al centro (dataset._centro = { valor, etiqueta, color })
+const centroDona = {
+  id: 'calbasCentro',
+  afterDatasetsDraw(chart) {
+    const ds = chart.data.datasets[0];
+    if (chart.config.type !== 'doughnut' || !ds?._centro) return;
+    const arco = chart.getDatasetMeta(0).data.find((a) => a && !a.hidden);
+    if (!arco) return;
+    const { x, y, innerRadius } = arco.getProps(['x', 'y', 'innerRadius'], true);
+    const t = Math.max(14, Math.min(innerRadius * 0.42, chart.canvas.dataset.zoom ? 46 : 30));
+    const { ctx } = chart;
+    ctx.save();
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = `900 ${t}px Inter, Segoe UI, system-ui, sans-serif`;
+    ctx.fillStyle = ds._centro.color || cssVar('--text') || '#172431';
+    ctx.fillText(ds._centro.valor, x, y - (ds._centro.etiqueta ? t * 0.3 : 0));
+    if (ds._centro.etiqueta) {
+      ctx.font = `700 ${Math.max(10, t * 0.38)}px Inter, Segoe UI, system-ui, sans-serif`;
+      ctx.fillStyle = cssVar('--muted') || '#687B8C';
+      ctx.fillText(ds._centro.etiqueta, x, y + t * 0.6);
+    }
     ctx.restore();
   },
 };
@@ -427,26 +545,82 @@ export function makeChart(canvas, config) {
   const muted = cssVar('--muted') || '#687B8C', line = cssVar('--line') || '#E3EAEF', text = cssVar('--text') || '#172431';
   window.Chart.defaults.font.family = 'Inter, Segoe UI, system-ui, sans-serif';
   window.Chart.defaults.color = muted;
+  const horiz = config.options?.indexAxis === 'y';
+  const tipo = config.type;
+  config.data.datasets.forEach((d) => {
+    // Pastel y dona: separación del color de la tarjeta (sin bordes blancos en modo oscuro)
+    if (['pie', 'doughnut'].includes(tipo)) {
+      d.borderColor = cssVar('--card') || '#fff'; d._bordeTarjeta = true;
+      d.borderWidth = 3; d.hoverOffset = 8;
+      if (tipo === 'doughnut') d.borderRadius = 6;
+      return;
+    }
+    // Barras con degradado (el color base queda en _color: la vista ampliada copia los datos como JSON)
+    if ((d.type || tipo) === 'bar') {
+      if (d._color === undefined) d._color = d.backgroundColor;
+      d.backgroundColor = (c) => degradadoBarra(c, d._color, horiz);
+      d.hoverBackgroundColor = (c) => colorDe(d._color, c.dataIndex);
+      d.borderRadius = d.stack ? 4 : 8;
+      d.borderSkipped = d.stack ? 'middle' : 'start';
+      return;
+    }
+    // Línea principal: área con degradado y puntos con aro del color de la tarjeta
+    if ((d.type || tipo) === 'line' && d._area) {
+      if (d._color === undefined) d._color = d.borderColor;
+      const col = d._color;
+      d.fill = 'start';
+      d.backgroundColor = (c) => degradadoArea(c, col);
+      d.pointBorderColor = cssVar('--card') || '#fff'; d._bordeTarjeta = true;
+      d.pointBorderWidth = 2;
+    }
+  });
+  const chico = (canvas.parentElement?.clientWidth || canvas.clientWidth || 600) < 420;
+  const ejes = { grid: { color: line, drawTicks: false, lineWidth: 1 }, ticks: { color: muted, precision: 0, padding: chico ? 6 : 8, maxTicksLimit: chico ? 5 : 8, font: { size: chico ? 10.5 : 11, weight: '500' } }, border: { display: false, dash: [3, 5] } };
+  const ox = config.options?.scales?.x || {}, oy = config.options?.scales?.y || {};
+  const nSeries = config.data.datasets.length;
   const c = new window.Chart(canvas, {
     ...config,
-    plugins: [...(config.plugins || []), etiquetasDatos],
+    plugins: [...(config.plugins || []), etiquetasDatos, centroDona],
     options: {
-      responsive: true, maintainAspectRatio: false, animation: { duration: 350 },
+      responsive: true, maintainAspectRatio: false,
+      animation: { duration: 750, easing: 'easeOutCubic' },
+      transitions: { active: { animation: { duration: 160 } } },
+      ...(config.options?.interaction ? { interaction: config.options.interaction } : {}),
+      layout: config.options?.layout || { padding: { top: 12, right: 10, bottom: 2, left: 4 } },
       plugins: {
-        legend: { labels: { color: text, boxWidth: 12, boxHeight: 12, usePointStyle: true }, ...(config.options?.plugins?.legend || {}) },
-        tooltip: { backgroundColor: '#102536', padding: 10, cornerRadius: 10 },
+        legend: { display: nSeries > 1 || ['pie', 'doughnut'].includes(tipo), labels: { color: text, boxWidth: 8, boxHeight: 8, usePointStyle: true, pointStyle: 'circle', padding: chico ? 12 : 16, font: { size: chico ? 11 : 12, weight: '600' } }, ...(config.options?.plugins?.legend || {}) },
+        tooltip: {
+          backgroundColor: 'rgba(10, 26, 39, .96)', titleColor: '#FFFFFF', bodyColor: '#D7E1EA', footerColor: '#93A5B3',
+          titleFont: { size: 12, weight: '700' }, bodyFont: { size: 12, weight: '500' }, titleMarginBottom: 6, bodySpacing: 4,
+          padding: { x: 12, y: 10 }, cornerRadius: 10, caretSize: 5, caretPadding: 8, boxPadding: 5, usePointStyle: true, animation: { duration: 140 },
+          borderColor: 'rgba(255, 255, 255, .14)', borderWidth: 1,
+          ...(config.options?.plugins?.tooltip || {}),
+        },
       },
-      scales: config.type === 'doughnut' ? {} : {
-        x: { grid: { color: line, drawTicks: false }, ticks: { color: muted, precision: 0 }, border: { display: false }, ...(config.options?.scales?.x || {}) },
-        y: { grid: { color: line, drawTicks: false }, ticks: { color: muted, precision: 0 }, border: { display: false }, beginAtZero: true, ...(config.options?.scales?.y || {}) },
+      scales: ['doughnut', 'pie'].includes(tipo) ? {} : {
+        x: { ...ejes, ...ox, grid: { ...ejes.grid, display: horiz || tipo === 'line', ...(ox.grid || {}) }, ticks: { ...ejes.ticks, ...(ox.ticks || {}) } },
+        y: { ...ejes, beginAtZero: true, ...oy, grid: { ...ejes.grid, display: !horiz, ...(oy.grid || {}) }, ticks: { ...ejes.ticks, ...(oy.ticks || {}) } },
       },
       ...(config.options?.indexAxis ? { indexAxis: config.options.indexAxis } : {}),
-      ...(config.type === 'doughnut' ? { cutout: '64%' } : {}),
+      ...(tipo === 'doughnut' ? { cutout: '66%' } : {}),
     },
   });
   charts.add(c);
+  chartConfigs.set(c, config);
+  // El recuadro de información se oculta al salir de la gráfica (no se queda fijo)
+  const ocultar = () => { try { c.setActiveElements([]); c.tooltip?.setActiveElements([], { x: 0, y: 0 }); c.update('none'); } catch { /* gráfica destruida */ } };
+  canvas.addEventListener('mouseleave', ocultar);
+  canvas.addEventListener('pointerleave', ocultar);
+  canvas.addEventListener('blur', ocultar);
   return c;
 }
+// Paleta categórica validada para daltonismo: siempre en este orden, nunca cíclica (más de 8 → «Otros»)
+const PALETA_CAT = { claro: ['#2A78D6', '#EB6834', '#1BAF7A', '#EDA100', '#E87BA4', '#008300', '#6250D6', '#E34948'], oscuro: ['#3987E5', '#D95926', '#199E70', '#C98500', '#D55181', '#008300', '#9085E9', '#E66767'] };
+export const temaOscuro = () => { const t = document.documentElement.dataset.theme; return t ? t === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; };
+export const paletaCat = () => PALETA_CAT[temaOscuro() ? 'oscuro' : 'claro'];
+// Color de negocio de cada tipo de equipo (v8.0): el color sigue al tipo, no a su posición
+const COLOR_TIPO = { BASCULA: '#F58020', TERMOMETRO: '#E0464E', POTENCIOMETRO: '#7A5BE6', MICROPIPETA: '#1BC7C7' };
+export const colorTipo = (clave, i = 0) => COLOR_TIPO[String(clave).toUpperCase()] || paletaCat()[i % 8];
 // Cambio de tema inmediato: re-colorea las gráficas sin volver a consultar datos
 export function restyleCharts() {
   const muted = cssVar('--muted'), line = cssVar('--line'), text = cssVar('--text');
@@ -454,6 +628,11 @@ export function restyleCharts() {
     try {
       const o = c.options;
       if (o.plugins?.legend?.labels) o.plugins.legend.labels.color = text;
+      c.data.datasets.forEach((d) => {
+        if (d._colores) { d._color = d._colores(); if (['pie', 'doughnut'].includes(c.config.type)) d.backgroundColor = d._color; }
+        if (!d._bordeTarjeta) return;
+        if (['pie', 'doughnut'].includes(c.config.type)) d.borderColor = cssVar('--card'); else d.pointBorderColor = cssVar('--card');
+      });
       for (const s of Object.values(o.scales || {})) {
         if (s.ticks) s.ticks.color = muted;
         if (s.grid) s.grid.color = line;
@@ -463,6 +642,108 @@ export function restyleCharts() {
   });
 }
 export function destroyCharts() { charts.forEach((c) => { try { c.destroy(); } catch { /* ya destruida */ } }); charts.clear(); }
+
+// ---------- Gráfica ampliada ----------
+// Clic o toque en una .chart-box: la gráfica se abre sola, en grande, con opción de guardarla como PNG.
+let zoomAbierto = null;
+export function ampliarGrafica(canvas) {
+  const orig = window.Chart?.getChart(canvas);
+  const config = orig && chartConfigs.get(orig);
+  if (!config || zoomAbierto) return;
+  const card = canvas.closest('.card');
+  const titulo = card?.querySelector('.card-head h3')?.textContent.trim() || canvas.getAttribute('aria-label') || 'Gráfica';
+  const sub = card?.querySelector('.card-head p')?.textContent.trim() || '';
+  const ov = document.createElement('div');
+  ov.className = 'chart-zoom';
+  ov.setAttribute('role', 'dialog');
+  ov.setAttribute('aria-modal', 'true');
+  ov.setAttribute('aria-label', titulo);
+  ov.innerHTML = `
+    <div class="cz-card">
+      <div class="cz-head">
+        <div class="cz-tit"><h2>${esc(titulo)}</h2>${sub ? `<p>${esc(sub)}</p>` : ''}</div>
+        <div class="cz-acts">
+          <button type="button" class="btn secondary" data-cz="png">${icon('image-down')} <span>Guardar imagen</span></button>
+          <button type="button" class="icon-btn" data-cz="cerrar" aria-label="Cerrar" title="Cerrar (Esc)">${icon('x')}</button>
+        </div>
+      </div>
+      <div class="cz-body"><canvas data-zoom="1" role="img" aria-label="${esc(titulo)}"></canvas></div>
+      <div class="cz-pie"><span>Metrología · Pet's Table</span><span class="cz-girar">${icon('smartphone')} Gira el teléfono para verla más grande</span></div>
+    </div>`;
+  document.body.appendChild(ov);
+  document.body.classList.add('modal-open');
+  refreshIcons();
+  const cfg = { ...config, data: JSON.parse(JSON.stringify(config.data)) };
+  cfg.data.datasets?.forEach((d) => { if (d.maxBarThickness) d.maxBarThickness = Math.round(d.maxBarThickness * 1.8); });
+  const zc = makeChart(ov.querySelector('canvas'), cfg);
+  charts.delete(zc);
+  try {
+    for (const s of Object.values(zc.options.scales || {})) if (s.ticks) s.ticks.font = { size: 14, weight: '600' };
+    if (zc.options.plugins?.legend?.labels) zc.options.plugins.legend.labels.font = { size: 14 };
+    zc.update('none');
+  } catch { /* opciones no disponibles */ }
+  const cerrar = () => {
+    document.removeEventListener('keydown', onKey);
+    try { zc.destroy(); } catch { /* ya destruida */ }
+    ov.remove();
+    if (!document.querySelector('.modal')) document.body.classList.remove('modal-open');
+    zoomAbierto = null;
+    canvas.closest('.chart-box')?.focus?.();
+  };
+  const onKey = (e) => { if (e.key === 'Escape') cerrar(); };
+  document.addEventListener('keydown', onKey);
+  ov.addEventListener('click', (e) => {
+    if (e.target === ov || e.target.closest('[data-cz="cerrar"]')) cerrar();
+    else if (e.target.closest('[data-cz="png"]')) guardarGrafica(zc, titulo, sub);
+  });
+  zoomAbierto = cerrar;
+  ov.querySelector('[data-cz="cerrar"]').focus();
+}
+window.addEventListener('hashchange', () => zoomAbierto?.());
+// Imagen PNG con título, subtítulo y la gráfica sobre fondo sólido
+async function guardarGrafica(chart, titulo, sub) {
+  const src = chart.canvas, k = 2;
+  const w = src.width, h = src.height, pad = 24 * k, top = (sub ? 78 : 56) * k;
+  const c = document.createElement('canvas');
+  c.width = w + pad * 2; c.height = h + top + pad;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = cssVar('--card') || '#FFFFFF';
+  ctx.fillRect(0, 0, c.width, c.height);
+  ctx.fillStyle = cssVar('--text') || '#172431';
+  ctx.font = `800 ${22 * k}px Inter, Segoe UI, system-ui, sans-serif`;
+  ctx.textBaseline = 'top';
+  ctx.fillText(titulo, pad, pad);
+  if (sub) {
+    ctx.fillStyle = cssVar('--muted') || '#687B8C';
+    ctx.font = `500 ${14 * k}px Inter, Segoe UI, system-ui, sans-serif`;
+    ctx.fillText(sub, pad, pad + 32 * k);
+  }
+  ctx.drawImage(src, pad, top);
+  const nombre = `${titulo.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase() || 'grafica'}.png`;
+  const blob = await new Promise((r) => c.toBlob(r, 'image/png'));
+  if (!blob) { toast('No se pudo generar la imagen.', 'error'); return; }
+  const file = new File([blob], nombre, { type: 'image/png' });
+  if (matchMedia('(pointer: coarse)').matches && navigator.canShare?.({ files: [file] })) {
+    try { await navigator.share({ files: [file], title: titulo }); return; } catch (err) { if (err?.name === 'AbortError') return; }
+  }
+  const url = URL.createObjectURL(blob);
+  const a = Object.assign(document.createElement('a'), { href: url, download: nombre });
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+  toast('Imagen de la gráfica guardada.', 'success');
+}
+document.addEventListener('click', (e) => {
+  const cv = e.target.closest('.chart-box')?.querySelector('canvas');
+  if (cv && !e.target.closest('.chart-zoom')) ampliarGrafica(cv);
+});
+// En pantallas táctiles, tocar fuera de una gráfica oculta su recuadro de información
+document.addEventListener('pointerdown', (e) => {
+  if (e.target.closest?.('canvas')) return;
+  charts.forEach((c) => { try { if (c.tooltip?.getActiveElements?.().length) { c.setActiveElements([]); c.tooltip.setActiveElements([], { x: 0, y: 0 }); c.update('none'); } } catch { /* destruida */ } });
+}, true);
+document.addEventListener('keydown', (e) => {
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.matches?.('.chart-box')) { e.preventDefault(); const cv = e.target.querySelector('canvas'); if (cv) ampliarGrafica(cv); }
+});
 
 // ---------- Exportación de archivos ----------
 // Lee todas las filas de una consulta en páginas de 1,000 (límite del servidor)
@@ -763,12 +1044,16 @@ export const ESTADO_VER = {
   al_dia: ['Al día', 'ok'], por_vencer: ['Próxima', 'warn'], vencida: ['Atrasada', 'bad'], sin_registro: ['Sin verificar', 'gray'], no_aplica: ['Solo calibración', 'info'],
 };
 export const RESULTADO_CAL = { vigente: ['Conforme', 'ok'], no_conforme: ['No conforme', 'bad'], cancelada: ['Cancelada', 'gray'] };
-export const calPill = (e) => pill(...(ESTADO_CAL[e] || [e || '—', 'gray']));
-export const verPill = (e) => pill(...(ESTADO_VER[e] || [e || '—', 'gray']));
+// Píldora de estado con ilustración pequeña (v8.2)
+export const pillIlus = (text, cls, slug) => (slug ? `<span class="pill ${cls} con-ilus">${emoji(slug, 'xs')}${esc(text)}</span>` : pill(text, cls));
+const ILUS_CAL = { vigente: 'cal_vigente', por_vencer: 'cal_por_vencer', vencida: 'cal_vencida' };
+const ILUS_VER = { al_dia: 'cumple', por_vencer: 'por_verificar', vencida: 'atrasada', sin_registro: 'por_verificar', no_aplica: 'n_calibraciones' };
+export const calPill = (e) => pillIlus(...(ESTADO_CAL[e] || [e || '—', 'gray']), ILUS_CAL[e]);
+export const verPill = (e) => pillIlus(...(ESTADO_VER[e] || [e || '—', 'gray']), ILUS_VER[e]);
 export function dictamenPill(d, estado) {
-  if (estado === 'anulada') return pill('Anulada', 'gray');
-  if (d === 'CUMPLE') return pill('Cumple', 'ok');
-  if (d === 'NO_CUMPLE') return pill('No cumple', 'bad');
+  if (estado === 'anulada') return pillIlus('Anulada', 'gray', 'anulada');
+  if (d === 'CUMPLE') return pillIlus('Cumple', 'ok', 'cumple');
+  if (d === 'NO_CUMPLE') return pillIlus('No cumple', 'bad', 'no_cumple');
   return pill('Pendiente', 'gray');
 }
 export const CLASES = { CLASE_I: 'Clase I', CLASE_II: 'Clase II', CLASE_III: 'Clase III', CLASE_IIII: 'Clase IIII' };

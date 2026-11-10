@@ -6,7 +6,7 @@
 import {
   sb, state, esc, icon, refreshIcons, todayISO, addDays, fmtDate, fmtDateTime, fmtNum, pill, makeChart, destroyCharts,
   emptyState, errorState, navigate, monthShort, must, avatarHTML, fotoDe, calPill, verPill, tipoIcono, PALETTE, cssVar, ganchos,
-  push, prefs, toast, errMsg,
+  push, prefs, toast, errMsg, kpiHTML, animarCifras, emoji, ilusTipo, colorTipo, paletaCat,
 } from '../core.js';
 import { cargarEquipos } from './equipos.js';
 import { etiquetaIndividual } from './etiquetas.js';
@@ -26,7 +26,7 @@ export default {
       <div id="dash-body" class="dash"></div>`;
     el.addEventListener('click', onClick);
     el.addEventListener('keydown', (e) => {
-      if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('[data-dash][role="link"]')) { e.preventDefault(); e.target.click(); }
+      if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('[data-dash][role="link"], [data-go][role="link"]')) { e.preventDefault(); e.target.click(); }
     });
     await load();
   },
@@ -34,9 +34,9 @@ export default {
 };
 
 function onClick(e) {
-  const a = e.target.closest('[data-dash]');
+  const a = e.target.closest('[data-dash], [data-go]');
   if (!a) return;
-  const act = a.dataset.dash;
+  const act = a.dataset.dash || a.dataset.go;
   if (act === 'retry') return load();
   if (act === 'ficha') return ganchos.abrirFichaEquipo?.(a.dataset.id);
   if (act.startsWith('#')) navigate(act);
@@ -72,11 +72,11 @@ async function load() {
 
     destroyCharts();
     body.innerHTML = `
-      <div class="grid grid-4">
-        ${kpi('i-blue', 'gauge', 'Equipos activos', activos.length, `${nTipos} ${nTipos === 1 ? 'tipo' : 'tipos'} de instrumento`, '#/equipos')}
-        ${kpi('c2 i-amber', 'clipboard-check', 'Verificaciones mensuales', verMes.length, conformes === null ? 'Sin registros este mes' : `${conformes} % conformes este mes`, '#/historial')}
-        ${kpi('c3 i-green', 'badge-check', 'Calibraciones vigentes', calVig.length, calPorVencer ? `${calPorVencer} por vencer en 30 días` : `De ${activos.length} equipos activos`, '#/calibraciones?estado=vigente')}
-        ${kpi(`${calVenc ? 'danger' : 'c4'} i-red`, 'calendar-x', 'Calibraciones vencidas', calVenc, calVenc ? 'Requieren calibración externa' : 'Ninguna vencida', '#/calibraciones?estado=vencida')}
+      <div class="grid grid-4 kx-grid" id="d-kpis">
+        ${kpiHTML({ tono: 'blue', ilus: 'n_equipos', label: 'Equipos activos', valor: fmtNum(activos.length), desc: `${nTipos} ${nTipos === 1 ? 'tipo' : 'tipos'} de instrumento`, go: '#/equipos' })}
+        ${kpiHTML({ tono: 'orange', ilus: 'n_verificar', label: 'Verificaciones mensuales', valor: fmtNum(verMes.length), desc: conformes === null ? 'Sin registros este mes' : `${conformes} % conformes este mes`, go: '#/historial', barra: conformes })}
+        ${kpiHTML({ tono: 'green', ilus: 'cal_vigente', label: 'Calibraciones vigentes', valor: fmtNum(calVig.length), desc: calPorVencer ? `${calPorVencer} por vencer en 30 días` : `De ${activos.length} equipos activos`, go: '#/calibraciones?estado=vigente' })}
+        ${kpiHTML({ tono: calVenc ? 'red' : 'violet', ilus: 'cal_vencida', label: 'Calibraciones vencidas', valor: fmtNum(calVenc), desc: calVenc ? 'Requieren calibración externa' : 'Ninguna vencida', go: '#/calibraciones?estado=vencida' })}
       </div>
       ${sinCerrar.length || tendencia.length ? `<div class="notice error mt">${icon('triangle-alert')}<span>${sinCerrar.length ? `<b>${sinCerrar.length} ${sinCerrar.length === 1 ? 'verificación «no cumple» sin cerrar' : 'verificaciones «no cumple» sin cerrar'}</b>${sinSeg ? ` (${sinSeg} sin acción correctiva)` : ''}. Registra la acción tomada (ajuste, reparación, calibración o retiro) y ciérrala con su evidencia; el aviso desaparece al cerrarlas. ` : ''}${tendencia.length ? `<b>${tendencia.length} báscula(s) con alerta de tendencia</b> (3 o más «no cumple» en sus últimas 5 verificaciones).` : ''}</span>
         <button class="btn red sm" data-dash="#/historial?seguimiento=pendiente">${icon('wrench')} Dar seguimiento</button></div>` : ''}
@@ -94,6 +94,7 @@ async function load() {
       ${quickHTML()}
       ${accesoHTML()}`;
     refreshIcons();
+    animarCifras(body.querySelector('#d-kpis'));
     drawCharts(ver.data, activos, inicio);
     sugerirAvisos(body, t);
     if (state.isAdmin) etiquetasDanadas(body, t, activos);
@@ -105,15 +106,11 @@ async function load() {
   }
 }
 
-const kpi = (cls, ico, label, value, desc, go = '') =>
-  `<div class="kpi ${cls} ${go ? 'clickable' : ''}" ${go ? `data-dash="${go}" role="link" tabindex="0"` : ''}>
-    <div class="kpi-head"><span class="kpi-ico">${icon(ico)}</span><small>${esc(label)}</small></div>
-    <strong>${fmtNum(value)}</strong><span class="desc">${esc(desc)}</span></div>`;
 const cardHead = (title, sub = '', btn = '') =>
   `<div class="card-head center"><div><h3>${esc(title)}</h3>${sub ? `<p>${esc(sub)}</p>` : ''}</div>${btn}</div>`;
 const chartCard = (id, title, sub) =>
-  `<div class="card">${cardHead(title, sub)}<div class="chart-box"><canvas id="${id}" role="img" aria-label="${esc(title)}"></canvas></div></div>`;
-const eqIco = (e) => `<span class="eq-ico sm t-${esc(e.tipo_clave_calbas.toLowerCase())}">${icon(tipoIcono(e.tipo_clave_calbas, e.icono_calbas))}</span>`;
+  `<div class="card chart-card">${cardHead(title, sub)}<div class="chart-box" tabindex="0" title="Ampliar gráfica"><canvas id="${id}" role="img" aria-label="${esc(title)}"></canvas></div></div>`;
+const eqIco = (e) => `<span class="eq-ico sm ilus t-${esc(e.tipo_clave_calbas.toLowerCase())}">${emoji(ilusTipo(e))}</span>`;
 
 function listaPendientes(rows) {
   if (!rows.length) return emptyState({ ico: 'circle-check-big', title: 'Todo al día', text: 'Todos los equipos activos tienen su verificación vigente.' });
@@ -163,18 +160,22 @@ function drawCharts(ver, activos, inicio) {
   if (c1) makeChart(c1, {
     type: 'bar',
     data: { labels: meses.map((m) => monthShort(`${m}-15`)), datasets: [
-      { label: 'Cumple', data: meses.map((m) => cuenta(m, 'CUMPLE')), backgroundColor: cssVar('--ok') || PALETTE[3], borderRadius: 6, stack: 's' },
-      { label: 'No cumple', data: meses.map((m) => cuenta(m, 'NO_CUMPLE')), backgroundColor: cssVar('--bad') || PALETTE[5], borderRadius: 6, stack: 's' },
+      { label: 'Cumple', data: meses.map((m) => cuenta(m, 'CUMPLE')), backgroundColor: cssVar('--ok') || PALETTE[3], _colores: () => cssVar('--ok') || PALETTE[3], stack: 's' },
+      { label: 'No cumple', data: meses.map((m) => cuenta(m, 'NO_CUMPLE')), backgroundColor: cssVar('--bad') || PALETTE[5], _colores: () => cssVar('--bad') || PALETTE[5], stack: 's' },
     ] },
     options: { scales: { x: { stacked: true }, y: { stacked: true } } },
   });
-  const tipos = {};
-  activos.forEach((e) => { tipos[e.tipo_nombre_calbas] = (tipos[e.tipo_nombre_calbas] || 0) + 1; });
+  // Equipos por tipo: cada tipo conserva su color (v8.0); los tipos nuevos usan la paleta categórica
+  const tipos = {}, claves = {};
+  activos.forEach((e) => { tipos[e.tipo_nombre_calbas] = (tipos[e.tipo_nombre_calbas] || 0) + 1; claves[e.tipo_nombre_calbas] = e.tipo_clave_calbas; });
+  const nombres = Object.keys(tipos);
+  // Los tipos sin color propio toman la paleta categórica en orden (el primero, azul)
+  const colores = () => { let k = 0; return nombres.map((n) => colorTipo(claves[n], ['BASCULA', 'TERMOMETRO', 'POTENCIOMETRO', 'MICROPIPETA'].includes(claves[n]) ? 0 : k++)); };
   const c2 = document.getElementById('ch-tipo');
   if (c2) makeChart(c2, {
     type: 'doughnut',
-    data: { labels: Object.keys(tipos), datasets: [{ data: Object.values(tipos), backgroundColor: PALETTE, borderWidth: 0 }] },
-    options: { plugins: { legend: { position: 'right' } } },
+    data: { labels: nombres, datasets: [{ data: Object.values(tipos), backgroundColor: colores(), _colores: colores, _centro: { valor: fmtNum(activos.length), etiqueta: 'equipos' } }] },
+    options: { plugins: { legend: { position: window.innerWidth < 560 ? 'bottom' : 'right' } } },
   });
 }
 
@@ -239,8 +240,11 @@ async function etiquetasDanadas(body, t, equipos) {
   const { data } = await sb.from('vw_etiquetas_danadas_calbas').select('*').is('reemplazada_at_calbas', null).order('created_at_calbas');
   if (!data?.length || t !== token) return;
   const card = document.createElement('div');
-  card.className = 'card mt etq-pendientes';
-  card.innerHTML = `${cardHead('Etiquetas por reemplazar', `${data.length} ${data.length === 1 ? 'etiqueta reportada' : 'etiquetas reportadas'} como dañada${data.length === 1 ? '' : 's'} en la verificación`)}
+  card.className = 'card mt etq-pendientes alerta-card';
+  card.setAttribute('role', 'alert');
+  card.innerHTML = `<div class="alerta-head"><span class="alerta-ilus">${emoji('etiqueta_danada')}</span><div><h3>Etiquetas por reemplazar</h3>
+      <p>${data.length} ${data.length === 1 ? 'etiqueta reportada' : 'etiquetas reportadas'} como dañada${data.length === 1 ? '' : 's'} en la verificación. Imprime la nueva, colócala y márcala como reemplazada.</p></div>
+      <span class="alerta-n">${data.length}</span></div>
     <div class="list">${data.map((x) => `<div class="list-item">
       <span class="eq-ico sm t-${esc(String(x.tipo_clave_calbas).toLowerCase())}">${icon('tag')}</span>
       <div class="li-main"><b>${esc(x.codigo_calbas)} · ${esc(x.tipo_nombre_calbas)}</b>
@@ -260,6 +264,8 @@ async function etiquetasDanadas(body, t, equipos) {
       must(await sb.from('etiquetas_danadas_calbas').update({ reemplazada_at_calbas: new Date().toISOString(), reemplazada_por_calbas: state.session.user.id }).eq('id_calbas', x.id_calbas));
       toast(`Etiqueta de ${x.codigo_calbas} marcada como reemplazada.`, 'success');
       ok.closest('.list-item').remove();
+      const n = card.querySelectorAll('.list-item').length, cifra = card.querySelector('.alerta-n');
+      if (cifra) cifra.textContent = n;
       if (!card.querySelector('.list-item')) card.remove();
     } catch (err) { toast(errMsg(err), 'error'); ok.disabled = false; }
   });

@@ -205,7 +205,7 @@ async function detalle(v) {
       </dl>
       ${ajusteHTML(v)}
       ${seguimientoHTML(v)}
-      ${serie?.length > 1 ? `<h4 class="section-label mt">Tendencia del error (últimas ${serie.length})</h4><div class="chart-box" style="height:220px"><canvas id="h-chart"></canvas></div>` : ''}
+      ${serie?.length > 1 ? `<h4 class="section-label mt">Tendencia del error (últimas ${serie.length})</h4><div class="chart-box" style="height:240px" tabindex="0" title="Ampliar gráfica"><canvas id="h-chart" role="img" aria-label="Tendencia del error"></canvas></div>` : ''}
       ${state.isAdmin && v.estado_calbas !== 'anulada' ? `<div class="mt"><button type="button" class="btn danger sm" data-anular>${icon('ban')} Anular verificación</button></div>` : ''}`,
     onOpen: ({ wrap, close }) => {
       const cv = wrap.querySelector('#h-chart');
@@ -216,7 +216,7 @@ async function detalle(v) {
           data: {
             labels: s.map((x) => fmtDate(x.fecha_calbas).slice(0, 5)),
             datasets: [
-              { label: 'Error', data: s.map((x) => Number(x.error_calbas)), borderColor: PALETTE[0], backgroundColor: PALETTE[0], tension: 0.25, pointRadius: 4,
+              { label: 'Error', data: s.map((x) => Number(x.error_calbas)), borderColor: PALETTE[0], _area: true, tension: 0.25, pointRadius: 4,
                 pointBackgroundColor: s.map((x) => (x.dictamen_calbas === 'CUMPLE' ? cssVar('--ok') : cssVar('--bad'))) },
               { label: '+ Tolerancia', data: s.map((x) => Number(x.tolerancia_calbas)), borderColor: PALETTE[1], borderDash: [6, 4], pointRadius: 0 },
               { label: '− Tolerancia', data: s.map((x) => -Number(x.tolerancia_calbas)), borderColor: PALETTE[1], borderDash: [6, 4], pointRadius: 0 },

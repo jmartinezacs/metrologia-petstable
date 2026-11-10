@@ -4,13 +4,13 @@
 // y descarga de la guía completa en PDF tamaño carta.
 // Las ilustraciones son SVG propios; el PDF las convierte a PNG.
 // =====================================================================
-import { state, esc, icon, refreshIcons, toast, errMsg, APP_VERSION } from '../core.js';
+import { state, esc, icon, refreshIcons, toast, errMsg, APP_VERSION, emoji } from '../core.js';
 import { LOGO, cargarJsPDF } from './etiquetas.js';
 
 // ---------------- Contenido ----------------
 // Formato de las respuestas: párrafos separados por \n, viñetas con «- » y **negritas**.
 const TEMAS = [
-  { id: 'inicio', ico: 'rocket', titulo: 'Primeros pasos', preguntas: [
+  { id: 'inicio', ilus: 'n_panel', ico: 'rocket', titulo: 'Primeros pasos', preguntas: [
     ['¿Qué es Metrología y para qué sirve?',
       'Es la aplicación de **Calidad de proceso de Pet\'s Table** para controlar los equipos de medición: básculas, termómetros, potenciómetros y micropipetas.\nEn ella se registran las **verificaciones internas** (contra un patrón), se consultan las **calibraciones externas** con su certificado y se da seguimiento a los resultados «no cumple», para asegurar que cada medición que se hace en planta sea confiable.'],
     ['¿Cómo entro a la aplicación?',
@@ -24,7 +24,7 @@ const TEMAS = [
     ['Apareció «Hay una nueva versión disponible», ¿qué hago?',
       'Toca **Actualizar**. La aplicación se recarga con las mejoras más recientes sin perder tu sesión. Si estás a la mitad de un registro, termínalo primero y actualiza después.'],
   ] },
-  { id: 'verificar', ico: 'clipboard-check', titulo: 'Verificaciones', preguntas: [
+  { id: 'verificar', ilus: 'n_verificar', ico: 'clipboard-check', titulo: 'Verificaciones', preguntas: [
     ['¿Cuál es la diferencia entre una verificación y una calibración?',
       '- **Verificación:** prueba interna y frecuente que hace el inspector comparando el equipo contra un **patrón** (pesa, termómetro patrón o solución buffer). Confirma que el equipo sigue midiendo bien entre calibraciones.\n- **Calibración:** servicio externo que realiza un **laboratorio acreditado** y que se respalda con un certificado. Tiene vigencia (normalmente un año).'],
     ['¿Cómo registro una verificación?',
@@ -46,7 +46,7 @@ const TEMAS = [
     ['¿Para qué sirve la casilla «Etiqueta dañada»?',
       'Márcala al verificar si la etiqueta de identificación del equipo está **rota, ilegible o se desprendió**. Los administradores reciben un aviso y el equipo aparece en su Panel en **Etiquetas por reemplazar** para imprimir una nueva.'],
   ] },
-  { id: 'nocumple', ico: 'triangle-alert', titulo: 'Resultados «no cumple»', preguntas: [
+  { id: 'nocumple', ilus: 'no_cumple', ico: 'triangle-alert', titulo: 'Resultados «no cumple»', preguntas: [
     ['¿Qué hago si una verificación sale «no cumple»?',
       '- **Retira el equipo de uso** e identifícalo para que nadie lo utilice.\n- Los administradores reciben un **aviso inmediato**.\n- Registra la **acción correctiva** desde Historial (ajuste, reparación, calibración externa, retiro, re-verificación o baja).\n- Cuando la acción esté terminada, **cierra el seguimiento** con su evidencia. El aviso del Panel desaparece al cerrarlo.'],
     ['¿Cómo registro la acción correctiva?',
@@ -56,7 +56,7 @@ const TEMAS = [
     ['¿Qué es la alerta de tendencia?',
       'Aparece cuando una báscula acumula **3 o más «no cumple» en sus últimas 5 verificaciones**. Indica que el problema es recurrente y conviene programar una revisión o calibración externa.'],
   ] },
-  { id: 'equipos', ico: 'gauge', titulo: 'Equipos, patrones y etiquetas', preguntas: [
+  { id: 'equipos', ilus: 'n_equipos', ico: 'gauge', titulo: 'Equipos, patrones y etiquetas', preguntas: [
     ['¿Cómo consulto la información de un equipo?',
       'En **Equipos** toca el ícono de ficha. Verás sus datos generales, parámetros metrológicos, próxima verificación, vigencia de la calibración, sus últimas verificaciones y los certificados. Puedes filtrar por tipo, departamento o estado y buscar por código, marca o serie.'],
     ['¿Qué tipos de báscula hay?',
@@ -70,7 +70,7 @@ const TEMAS = [
     ['¿Qué pasa si inactivo un equipo? (administradores)',
       'Deja de aparecer para verificar y en los avisos, pero **conserva todo su historial**. Puedes activarlo de nuevo en cualquier momento desde el botón de encendido de la tabla o desde su ficha. Usa el filtro de estado **Inactivos** para encontrarlo.'],
   ] },
-  { id: 'calibraciones', ico: 'badge-check', titulo: 'Calibraciones', preguntas: [
+  { id: 'calibraciones', ilus: 'n_calibraciones', ico: 'badge-check', titulo: 'Calibraciones', preguntas: [
     ['¿Quién registra las calibraciones?',
       'Los **administradores**, con la fecha, el vencimiento, el laboratorio y el **certificado en PDF**. Todos los usuarios pueden consultarlas y abrir el certificado.'],
     ['¿Qué significan los estados de calibración?',
@@ -78,7 +78,7 @@ const TEMAS = [
     ['¿Puedo exportar la información?',
       'Sí. En **Historial** y en **Calibraciones** usa **Exportar a Excel (CSV)** para descargar los registros con los filtros que tengas aplicados.'],
   ] },
-  { id: 'avisos', ico: 'bell-ring', titulo: 'Avisos y notificaciones', preguntas: [
+  { id: 'avisos', ilus: 'n_avisos', ico: 'bell-ring', titulo: 'Avisos y notificaciones', preguntas: [
     ['¿Qué avisos envía la aplicación?',
       'De lunes a viernes a las **8:00 a. m.**, excepto días festivos (los oficiales y los que agregue la administración en **Mi perfil → Días festivos**):\n- **Quienes verifican:** los equipos que ya toca verificar y los atrasados.\n- **Administradores:** calibraciones por vencer o vencidas y verificaciones con **3 días o más de atraso**.\nAdemás, al momento: cada **«no cumple»** y cada **etiqueta dañada** se avisa a los administradores.'],
     ['¿Cómo activo los avisos?',
@@ -86,7 +86,7 @@ const TEMAS = [
     ['No me llegan los avisos, ¿qué reviso?',
       '- En **iPhone o iPad**, primero instala la aplicación en la pantalla de inicio y ábrela desde el ícono.\n- Si dice **Bloqueados**, permite las notificaciones del sitio en la configuración del navegador o del teléfono.\n- Revisa que el modo **No molestar** o el ahorro de batería no estén silenciando la aplicación.\n- Desactiva y vuelve a activar los avisos, y envía un aviso de prueba.'],
   ] },
-  { id: 'cuenta', ico: 'circle-user', titulo: 'Mi cuenta', preguntas: [
+  { id: 'cuenta', ilus: 'n_perfil', ico: 'circle-user', titulo: 'Mi cuenta', preguntas: [
     ['¿Cómo cambio mi contraseña o mi foto?',
       'La **fotografía** solo la cambian los **administradores** (en Mi perfil o en Usuarios); si necesitas actualizar la tuya, pídeselo a uno. En **Cambiar contraseña** escribe la nueva dos veces (mínimo 8 caracteres). La contraseña **aplica a todas las aplicaciones** de Pet\'s Table que usan tu cuenta.'],
     ['¿Puedo usar el modo oscuro o la pantalla completa?',
@@ -106,9 +106,13 @@ const appIcon = () => document.querySelector('img.app-icon')?.src || '';
 const T = (x, y, s, size = 9, fill = C.txt, weight = 400, anchor = 'start') =>
   `<text x="${x}" y="${y}" font-family="Arial, Helvetica, sans-serif" font-size="${size}" font-weight="${weight}" fill="${fill}" text-anchor="${anchor}">${esc(s)}</text>`;
 const anillo = (cx, cy, r = 13) => `<circle cx="${cx}" cy="${cy}" r="${r + 7}" fill="${C.orange}" opacity=".16"/><circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${C.orange}" stroke-width="3"/>`;
-const svg = (body) => `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 240 300" width="240" height="300">${body}</svg>`;
+// v8.2: mismo estilo que las ilustraciones del sistema (cuerpo con degradado de dos tonos, contorno, sombra y brillo)
+const DEFS = `<defs><linearGradient id="ins-b" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2A4D69"/><stop offset="1" stop-color="#0B1E2D"/></linearGradient><linearGradient id="ins-p" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#E8EEF5"/></linearGradient><filter id="ins-s" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#0F172A" flood-opacity=".26"/></filter></defs>`;
+// Cada SVG lleva sus propios id (si se repiten, los de una pestaña oculta anulan el degradado)
+let nSvg = 0;
+const svg = (body) => { const k = `ins${++nSvg}-`; return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 240 300" width="240" height="300">${(DEFS + body).replace(/ins-/g, k)}</svg>`; };
 // Teléfono con pantalla (x 51–189, y 16–284)
-const telefono = (pantalla) => svg(`<rect x="44" y="6" width="152" height="288" rx="26" fill="${C.navy}"/><rect x="51" y="16" width="138" height="268" rx="18" fill="${C.bg}"/>
+const telefono = (pantalla) => svg(`<rect x="44" y="6" width="152" height="288" rx="26" fill="url(#ins-b)" stroke="#06121C" stroke-width="1.4" filter="url(#ins-s)"/><path d="M50 40c0-14 4-26 18-28" stroke="#FFF" stroke-opacity=".3" stroke-width="2.4" fill="none" stroke-linecap="round"/><rect x="51" y="16" width="138" height="268" rx="18" fill="${C.bg}"/>
   <rect x="100" y="21" width="40" height="7" rx="3.5" fill="${C.navy}"/>${pantalla}`);
 // Página de Metrología simulada dentro de la pantalla
 const paginaApp = (y0 = 50, y1 = 244) => `<rect x="58" y="${y0}" width="124" height="22" rx="6" fill="${C.white}"/>
@@ -128,8 +132,8 @@ const hojaMenu = (y, filas, marcada, titulo = '') => `<rect x="51" y="16" width=
       ${T(66, yy + 13, f, 7.4, on ? C.navy : C.txt, on ? 700 : 400)}<rect x="164" y="${yy + 4}" width="11" height="11" rx="3" fill="none" stroke="${on ? C.orange : C.muted}" stroke-width="1.4"/>`;
   }).join('')}`;
 // Monitor con navegador (pantalla x 16–224, y 56–192)
-const monitor = (contenido) => svg(`<rect x="10" y="48" width="220" height="152" rx="9" fill="${C.navy}"/><rect x="16" y="54" width="208" height="138" rx="4" fill="${C.bg}"/>
-  <rect x="106" y="200" width="28" height="26" fill="${C.navy2}"/><rect x="78" y="226" width="84" height="7" rx="3.5" fill="${C.navy}"/>${contenido}`);
+const monitor = (contenido) => svg(`<rect x="10" y="48" width="220" height="152" rx="9" fill="url(#ins-b)" stroke="#06121C" stroke-width="1.4" filter="url(#ins-s)"/><rect x="16" y="54" width="208" height="138" rx="4" fill="${C.bg}"/>
+  <rect x="106" y="200" width="28" height="26" fill="url(#ins-b)"/><rect x="78" y="226" width="84" height="7" rx="3.5" fill="url(#ins-b)" stroke="#06121C" stroke-width="1"/>${contenido}`);
 const barraNavegador = (instalar = false) => `<rect x="16" y="54" width="208" height="13" fill="#E3E9EF"/><rect x="22" y="57" width="46" height="10" rx="3" fill="${C.white}"/>${T(27, 64.5, 'Metrología', 5.5, C.txt, 700)}
   <rect x="16" y="67" width="208" height="15" fill="${C.white}"/><rect x="40" y="70" width="160" height="10" rx="5" fill="${C.bg}"/>${T(48, 77.4, URL_APP, 5.6, C.muted)}
   <g transform="translate(184 70.5)"><rect x="0" y="0" width="11" height="8" rx="1.5" fill="none" stroke="${C.navy}" stroke-width="1.1"/><path d="M5.5 1.6v4M3.7 4l1.8 1.8L7.3 4" stroke="${C.navy}" stroke-width="1.1" fill="none"/></g>
@@ -140,7 +144,7 @@ const paginaPC = (y0 = 86) => `<rect x="22" y="${y0}" width="38" height="${188 -
   <rect x="66" y="${y0 + 32}" width="148" height="${188 - y0 - 36}" rx="3" fill="${C.white}"/>`;
 
 const INSTALAR = [
-  { id: 'android', ico: 'smartphone', titulo: 'Celular Android', sub: 'Google Chrome', pasos: [
+  { id: 'android', ilus: 'celular', ico: 'smartphone', titulo: 'Celular Android', sub: 'Google Chrome', pasos: [
     ['Abre el menú', 'Entra a la aplicación desde **Chrome** y toca el botón de menú **⋮** en la esquina superior derecha.',
       () => telefono(`<rect x="51" y="30" width="138" height="16" fill="${C.white}"/><rect x="58" y="33" width="104" height="10" rx="5" fill="${C.bg}"/>${T(64, 40.5, URL_APP, 5.4, C.muted)}${T(176, 41.5, '⋮', 11, C.txt, 700, 'middle')}${anillo(176, 38, 9)}${paginaApp(52)}`)],
     ['Elige «Instalar aplicación»', 'En el menú toca **Instalar aplicación** (en algunos teléfonos dice **Agregar a pantalla principal**).',
@@ -156,7 +160,7 @@ const INSTALAR = [
     ['¡Listo!', 'Abre **Metrología** desde el ícono de tu pantalla de inicio, como cualquier otra aplicación.',
       () => telefono(pantallaInicio())],
   ] },
-  { id: 'ios', ico: 'tablet-smartphone', titulo: 'iPhone o iPad', sub: 'Safari', pasos: [
+  { id: 'ios', ilus: 'tableta', ico: 'tablet-smartphone', titulo: 'iPhone o iPad', sub: 'Safari', pasos: [
     ['Toca «Compartir»', 'Abre la aplicación en **Safari** y toca el botón **Compartir** (el cuadro con la flecha hacia arriba) en la barra inferior.',
       () => telefono(`${paginaApp(36, 238)}<rect x="51" y="244" width="138" height="40" rx="0" fill="${C.white}"/><rect x="62" y="248" width="116" height="10" rx="5" fill="${C.bg}"/>${T(120, 255.5, URL_APP, 5.2, C.muted, 400, 'middle')}
         ${[72, 96, 144, 168].map((x) => `<rect x="${x - 4}" y="265" width="8" height="8" rx="2" fill="none" stroke="${C.turq}" stroke-width="1.3"/>`).join('')}
@@ -171,7 +175,7 @@ const INSTALAR = [
     ['¡Listo!', 'Abre **Metrología** desde el nuevo ícono. Así funcionan también los **avisos** en iPhone y iPad.',
       () => telefono(pantallaInicio())],
   ] },
-  { id: 'pc', ico: 'monitor', titulo: 'Computadora', sub: 'Chrome o Microsoft Edge', pasos: [
+  { id: 'pc', ilus: 'monitor', ico: 'monitor', titulo: 'Computadora', sub: 'Chrome o Microsoft Edge', pasos: [
     ['Busca el ícono de instalar', 'Abre la aplicación en **Chrome** o **Edge** y haz clic en el ícono de **Instalar** de la barra de direcciones (una pantalla con una flecha).',
       () => monitor(`${barraNavegador(true)}${paginaPC()}`)],
     ['Confirma la instalación', 'Haz clic en **Instalar**. En Edge también puedes usar el menú **⋯ → Aplicaciones → Instalar este sitio como aplicación**.',
@@ -218,27 +222,27 @@ export default {
           <div class="faq-meta"><span>${icon('message-circle-question')} ${totalPreguntas} respuestas</span><span>${icon('layers')} ${TEMAS.length + 1} temas</span><span>${icon('info')} Versión ${esc(APP_VERSION)}</span></div>
         </div>
         <div class="faq-guia">
-          <span class="faq-guia-ico">${icon('book-open-text')}</span>
+          <span class="faq-guia-ico">${emoji('libro')}</span>
           <b>Guía de usuario en PDF</b>
           <span>Preguntas frecuentes y tutorial ilustrado de instalación, listo para imprimir o compartir.</span>
           <button class="btn primary" id="faq-pdf">${icon('download')} Descargar guía</button>
         </div>
       </section>
       <nav class="faq-chips" aria-label="Temas">
-        ${TEMAS.map((t) => `<a href="#faq-${t.id}" class="faq-chip" data-sec="${t.id}">${icon(t.ico)} ${esc(t.titulo)}</a>`).join('')}
+        ${TEMAS.map((t) => `<a href="#faq-${t.id}" class="faq-chip" data-sec="${t.id}">${emoji(t.ilus, 'sm')} ${esc(t.titulo)}</a>`).join('')}
         <a href="#faq-instalar" class="faq-chip" data-sec="instalar">${icon('download')} Instalar la aplicación</a>
       </nav>
       <div class="faq-body">
         ${TEMAS.map((t) => `<section class="faq-sec" id="faq-${t.id}">
-          <h2><span class="faq-sec-ico">${icon(t.ico)}</span>${esc(t.titulo)}<small>${t.preguntas.length} preguntas</small></h2>
+          <h2><span class="faq-sec-ico">${emoji(t.ilus)}</span>${esc(t.titulo)}<small>${t.preguntas.length} preguntas</small></h2>
           <div class="faq-list">${t.preguntas.map(([q, a]) => `<details class="faq-item" data-texto="${esc(norm(`${q} ${plano(a)}`))}">
             <summary><span>${esc(q)}</span>${icon('chevron-down')}</summary><div class="faq-a">${htmlRespuesta(a)}</div></details>`).join('')}</div>
         </section>`).join('')}
         <p class="faq-vacio hidden" id="faq-vacio">${icon('search-x')} No encontramos preguntas con esa búsqueda. Prueba con otras palabras o consulta a un administrador.</p>
         <section class="faq-sec faq-instalar" id="faq-instalar" data-texto="${esc(norm('instalar aplicacion celular android iphone ipad computadora chrome safari edge pantalla de inicio'))}">
-          <h2><span class="faq-sec-ico">${icon('download')}</span>Instalar la aplicación<small>Paso a paso</small></h2>
+          <h2><span class="faq-sec-ico">${emoji('celular')}</span>Instalar la aplicación<small>Paso a paso</small></h2>
           <p class="faq-intro">Instalada, Metrología se abre desde su propio ícono, en pantalla completa y con avisos. No ocupa espacio como una app de tienda y se actualiza sola.</p>
-          <div class="faq-tabs" role="tablist">${INSTALAR.map((p, i) => `<button role="tab" class="faq-tab ${i === 0 ? 'on' : ''}" data-plat="${p.id}" aria-selected="${i === 0}">${icon(p.ico)}<span><b>${esc(p.titulo)}</b><small>${esc(p.sub)}</small></span></button>`).join('')}</div>
+          <div class="faq-tabs" role="tablist">${INSTALAR.map((p, i) => `<button role="tab" class="faq-tab ${i === 0 ? 'on' : ''}" data-plat="${p.id}" aria-selected="${i === 0}">${emoji(p.ilus)}<span><b>${esc(p.titulo)}</b><small>${esc(p.sub)}</small></span></button>`).join('')}</div>
           ${INSTALAR.map((p, i) => `<div class="faq-pasos ${i === 0 ? '' : 'hidden'}" data-pasos="${p.id}">${p.pasos.map(([tit, txt, dib], k) => `
             <article class="faq-paso"><div class="faq-ilus">${dib()}</div>
               <div class="faq-paso-txt"><span class="faq-num">${k + 1}</span><b>${esc(tit)}</b>${htmlRespuesta(txt)}</div></article>`).join('')}</div>`).join('')}

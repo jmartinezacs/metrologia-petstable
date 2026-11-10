@@ -5,11 +5,11 @@
 import {
   sb, state, esc, icon, refreshIcons, toast, openModal, checkForm, formValues, nullIfEmpty, must, pill, fmtDate,
   calPill, RESULTADO_CAL, tipoIcono, subirCertificado, abrirCertificado, todayISO, addDays, emptyState, errorState,
-  fetchAll, toCSV, descargar, errMsg,
+  fetchAll, toCSV, descargar, errMsg, kpiHTML, animarCifras, emoji, ilusTipo,
 } from '../core.js';
 import { cargarEquipos } from './equipos.js';
 
-let root, tab = 'vigencia', equipos = [];
+let root, tab = 'vigencia', equipos = [], animado = false;
 
 export default {
   async render(el, params = {}) {
@@ -24,13 +24,15 @@ export default {
           ${state.isAdmin ? `<button class="btn navy" data-c="nueva">${icon('plus')} Registrar calibración</button>` : ''}
         </div>
       </section>
-      <div class="grid grid-4" id="c-kpis"></div>
+      <div class="grid grid-4 kx-grid" id="c-kpis"></div>
       <div class="tabs mt" role="tablist">
         <button role="tab" data-tab="vigencia">${icon('calendar-clock')} Vigencia por equipo</button>
         <button role="tab" data-tab="certificados">${icon('file-badge')} Certificados</button>
       </div>
       <div class="card" id="c-body"></div>`;
     el.addEventListener('click', onClick);
+    el.addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('[data-go]')) { e.preventDefault(); e.target.click(); } });
+    animado = false;
     await load(params.estado);
   },
   destroy() { root = null; },
@@ -39,8 +41,8 @@ export default {
 async function onClick(e) {
   const t = e.target.closest('[data-tab]');
   if (t) { tab = t.dataset.tab; history.replaceState(null, '', `#/calibraciones?tab=${tab}`); return load(); }
-  const k = e.target.closest('[data-kpi]');
-  if (k) { tab = 'vigencia'; return load(k.dataset.kpi); }
+  const k = e.target.closest('[data-go]');
+  if (k) { tab = 'vigencia'; return load(k.dataset.go); }
   const b = e.target.closest('[data-c]');
   if (!b) return;
   const act = b.dataset.c;
@@ -58,18 +60,22 @@ async function load(filtroEstado = '') {
   try {
     equipos = (await cargarEquipos()).filter((e) => e.activo_calbas);
     const cuenta = (s) => equipos.filter((e) => e.estado_calibracion_calbas === s).length;
-    const kpi = (cls, ico, label, n, desc, filtro) => `<button class="kpi ${cls} clickable" data-kpi="${filtro}"><div class="kpi-head"><span class="kpi-ico">${icon(ico)}</span><small>${esc(label)}</small></div><strong>${n}</strong><span class="desc">${esc(desc)}</span></button>`;
-    root.querySelector('#c-kpis').innerHTML = kpi('c3 i-green', 'badge-check', 'Vigentes', cuenta('vigente'), 'Más de 30 días de vigencia', 'vigente')
-      + kpi('c2 i-amber', 'calendar-clock', 'Por vencer', cuenta('por_vencer'), 'En los próximos 30 días', 'por_vencer')
-      + kpi(`${cuenta('vencida') ? 'danger' : 'c4'} i-red`, 'calendar-x', 'Vencidas', cuenta('vencida'), 'Requieren calibración', 'vencida')
-      + kpi('c4 i-violet', 'file-question', 'Sin registro', cuenta('sin_registro'), 'Sin certificado capturado', 'sin_registro');
+    const kpi = (tono, ilus, label, n, desc, filtro) => kpiHTML({ tono, ilus, label, valor: String(n), desc, go: filtro });
+    const kp = root.querySelector('#c-kpis');
+    kp.innerHTML = kpi('green', 'cal_vigente', 'Vigentes', cuenta('vigente'), 'Más de 30 días de vigencia', 'vigente')
+      + kpi('orange', 'cal_por_vencer', 'Por vencer', cuenta('por_vencer'), 'En los próximos 30 días', 'por_vencer')
+      + kpi(cuenta('vencida') ? 'red' : 'violet', 'cal_vencida', 'Vencidas', cuenta('vencida'), 'Requieren calibración', 'vencida')
+      + kpi('blue', 'n_calibraciones', 'Sin registro', cuenta('sin_registro'), 'Sin certificado capturado', 'sin_registro');
+    kp.querySelectorAll('[data-go]').forEach((x) => x.classList.toggle('sel', x.dataset.go === filtroEstado));
+    // Las cifras cuentan solo al montar la vista, no en cada filtro
+    if (!animado) { animado = true; animarCifras(kp); } else kp.classList.add('quieto');
     if (tab === 'vigencia') {
       const orden = { vencida: 0, por_vencer: 1, sin_registro: 2, vigente: 3 };
       let rows = [...equipos].sort((a, b) => orden[a.estado_calibracion_calbas] - orden[b.estado_calibracion_calbas] || (a.dias_calibracion_calbas ?? 99999) - (b.dias_calibracion_calbas ?? 99999));
       if (filtroEstado) rows = rows.filter((e) => e.estado_calibracion_calbas === filtroEstado);
       body.innerHTML = rows.length ? `<div class="table-wrap responsive"><table class="table"><thead><tr><th>Equipo</th><th>Departamento</th><th>Última calibración</th><th>Vencimiento</th><th>Certificado</th><th>Estado</th>${state.isAdmin ? '<th></th>' : ''}</tr></thead><tbody>
         ${rows.map((e) => `<tr>
-          <td data-label="Equipo"><div class="eq-cell"><span class="eq-ico t-${esc(e.tipo_clave_calbas.toLowerCase())}">${icon(tipoIcono(e.tipo_clave_calbas, e.icono_calbas))}</span><div><b class="cell-main">${esc(e.codigo_calbas)}</b><span class="cell-sub">${esc(e.tipo_nombre_calbas)}</span></div></div></td>
+          <td data-label="Equipo"><div class="eq-cell"><span class="eq-ico ilus t-${esc(e.tipo_clave_calbas.toLowerCase())}">${emoji(ilusTipo(e))}</span><div><b class="cell-main">${esc(e.codigo_calbas)}</b><span class="cell-sub">${esc(e.tipo_nombre_calbas)}</span></div></div></td>
           <td data-label="Departamento">${esc(e.departamento_calbas || '—')}<span class="cell-sub">${esc(e.ubicacion_calbas || '')}</span></td>
           <td data-label="Última">${fmtDate(e.fecha_calibracion_calbas)}</td>
           <td data-label="Vencimiento">${fmtDate(e.vencimiento_calibracion_calbas)}${e.dias_calibracion_calbas != null ? `<span class="cell-sub">${e.dias_calibracion_calbas < 0 ? `Hace ${-e.dias_calibracion_calbas} días` : `En ${e.dias_calibracion_calbas} días`}</span>` : ''}</td>

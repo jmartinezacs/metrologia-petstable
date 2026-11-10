@@ -35,6 +35,17 @@ Guía para Claude Code al trabajar en este repositorio.
 
 Sirve una build `-Prueba` con `tools\serve.ps1 -Root <carpeta>`. Luego sustituye `sb.from`/`sb.rpc` por datos simulados (inyecta un `<script src>` del mismo origen, porque la CSP bloquea `eval`) y dispara `sb.auth._notifyAllSubscribers('SIGNED_IN', session)`. No escribas contraseñas reales.
 
+## Sistema visual (v8.2, el mismo de «Ruta de calidad»)
+
+- **Ilustraciones propias:** SVG en `public/emoji/<slug>.svg` (viewBox 64), generados con `perl tools/gen-ilustraciones.pl fuentes/ilustraciones.src public/emoji` (Git Bash). Edita la fuente, nunca los SVG. Macros `%V` `%D` `%R` (degradados), `%S` (sombra; el filtro se llama `sh`, no uses ese id) y `%H` (brillo). Se muestran con `emoji(slug, cls)` (core.js, `<img>` cacheable con `loading="lazy"`). El build copia `public/emoji` a `emoji/`. Los botones, campos y acciones de tabla conservan lucide.
+- `ilusTipo(equipo)` da la ilustración del tipo (básculas de plataforma, mesa y analítica, termómetro, potenciómetro, micropipeta o `equipo_generico`); `pillIlus` y `calPill`/`verPill`/`dictamenPill` llevan ilustración pequeña. `ILUS_VACIO` (dentro de `emptyState`) mapea los íconos de los estados vacíos.
+- **Indicadores:** un solo componente, `kpiHTML({ tono, ilus, label, valor, desc, go, texto, barra })` (`.kx`); el módulo atiende `[data-go]`. `animarCifras(raiz)` cuenta desde 0, solo al montar la vista.
+- **Gráficas:** `makeChart` (degradados, dona con `_centro`, etiquetas de datos, `_porcentaje`, `_sufijo`, `_area`, `_colores` para el cambio de tema), `paletaCat()` (8 colores para daltonismo, en orden) y `colorTipo` (color de negocio de cada tipo). Una `.chart-box[tabindex]` se abre con `ampliarGrafica` y se guarda como PNG.
+- **Superficies destacadas:** variables `--hero-*` en claro y oscuro (identidad de Mi perfil, sistema y versión, créditos y «Acceso autorizado»). La firma de los créditos (`public/img/firma.png`) se incrusta en el CSS al compilar.
+- **Movimiento:** el router agrega `entra` a `#view` y `body.cargando` mientras carga; solo `transform` y `opacity`, y se apaga con `prefers-reduced-motion`.
+- **Notificaciones:** `badge` de Android = `public/notif/badge-96.png` (silueta blanca de Pet's Table, transparente); `badge-192.png` va como `monochrome` en el manifiesto. `apple-touch-icon.png` es de 180 × 180 y opaco.
+- El CSS de esta versión está en el bloque `/* v8.2.0 · Sistema visual de Ruta de calidad */` al final de `public/css/app.css`.
+
 ## Preguntas frecuentes (v7.8)
 
 - `public/js/modules/ayuda.js` (ruta `#/ayuda`, para todos): contenido en `TEMAS` (respuestas con `**negritas**` y viñetas `- `), tutorial de instalación en `INSTALAR` con ilustraciones SVG propias, y la guía PDF (portada, índice, preguntas y tutorial) con jsPDF. Si cambia un flujo de la app, actualiza aquí la respuesta.

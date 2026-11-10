@@ -3,7 +3,7 @@
 // =====================================================================
 import {
   sb, state, prefs, esc, icon, refreshIcons, toast, errMsg, openModal, checkForm, must,
-  destroyCharts, APP_VERSION, TZ, navigate, avatarHTML, fotoDe, restyleCharts, ganchos, push,
+  destroyCharts, APP_VERSION, TZ, navigate, avatarHTML, fotoDe, restyleCharts, ganchos, push, emoji,
 } from './core.js';
 import equipos from './modules/equipos.js';
 import patrones from './modules/patrones.js';
@@ -17,16 +17,16 @@ import ayuda from './modules/ayuda.js';
 import perfil from './modules/perfil.js';
 
 const ROUTES = {
-  panel:         { mod: dashboard,     icon: 'layout-dashboard', label: 'Panel',                 roles: ['admin', 'usuario'], mobile: true },
-  verificar:     { mod: verificar,     icon: 'clipboard-check',  label: 'Registrar verificación', short: 'Verificar', roles: ['admin', 'usuario'], mobile: true },
-  historial:     { mod: historial,     icon: 'history',          label: 'Historial',             roles: ['admin', 'usuario'], mobile: true },
-  equipos:       { mod: equipos,       icon: 'gauge',            label: 'Equipos',               roles: ['admin', 'usuario'], mobile: true },
-  calibraciones: { mod: calibraciones, icon: 'badge-check',      label: 'Calibraciones',         roles: ['admin', 'usuario'], mobile: true },
-  patrones:      { mod: patrones,      icon: 'weight',           label: 'Patrones',              roles: ['admin', 'usuario'] },
-  usuarios:      { mod: usuarios,      icon: 'users',            label: 'Usuarios',              roles: ['admin', 'usuario'] },
-  bitacora:      { mod: bitacora,      icon: 'scroll-text',      label: 'Bitácora',              roles: ['admin'] },
-  perfil:        { mod: perfil,        icon: 'circle-user',      label: 'Mi perfil',             roles: ['admin', 'usuario'] },
-  ayuda:         { mod: ayuda,         icon: 'circle-help',      label: 'Preguntas frecuentes',  roles: ['admin', 'usuario'] },
+  panel:         { mod: dashboard,     icon: 'layout-dashboard', ilus: 'n_panel', label: 'Panel',                 roles: ['admin', 'usuario'], mobile: true },
+  verificar:     { mod: verificar,     icon: 'clipboard-check',  ilus: 'n_verificar', label: 'Registrar verificación', short: 'Verificar', roles: ['admin', 'usuario'], mobile: true },
+  historial:     { mod: historial,     icon: 'history',          ilus: 'reloj', label: 'Historial',             roles: ['admin', 'usuario'], mobile: true },
+  equipos:       { mod: equipos,       icon: 'gauge',            ilus: 'n_equipos', label: 'Equipos',               roles: ['admin', 'usuario'], mobile: true },
+  calibraciones: { mod: calibraciones, icon: 'badge-check',      ilus: 'n_calibraciones', label: 'Calibraciones',         roles: ['admin', 'usuario'], mobile: true },
+  patrones:      { mod: patrones,      icon: 'weight',           ilus: 'n_patrones', label: 'Patrones',              roles: ['admin', 'usuario'] },
+  usuarios:      { mod: usuarios,      icon: 'users',            ilus: 'n_usuarios', label: 'Usuarios',              roles: ['admin', 'usuario'] },
+  bitacora:      { mod: bitacora,      icon: 'scroll-text',      ilus: 'n_bitacora', label: 'Bitácora',              roles: ['admin'] },
+  perfil:        { mod: perfil,        icon: 'circle-user',      ilus: 'n_perfil', label: 'Mi perfil',             roles: ['admin', 'usuario'] },
+  ayuda:         { mod: ayuda,         icon: 'circle-help',      ilus: 'n_ayuda', label: 'Preguntas frecuentes',  roles: ['admin', 'usuario'] },
 };
 
 const $ = (s) => document.querySelector(s);
@@ -193,9 +193,11 @@ function allowed(name) { const r = ROUTES[name]; return r && r.roles.includes(st
 
 function buildNav() {
   const items = Object.entries(ROUTES).filter(([k]) => allowed(k));
-  $('#nav').innerHTML = items.map(([k, r]) => `<a href="#/${k}" data-route="${k}">${icon(r.icon)}<span>${esc(r.label)}</span></a>`).join('');
+  // Ilustración a color de cada sección (respaldo lucide si una ruta no la tiene)
+  const ico = (r) => (r.ilus ? emoji(r.ilus, 'nav-ilus') : icon(r.icon));
+  $('#nav').innerHTML = items.map(([k, r]) => `<a href="#/${k}" data-route="${k}">${ico(r)}<span>${esc(r.label)}</span></a>`).join('');
   $('#mobile-nav').innerHTML = items.filter(([, r]) => r.mobile).slice(0, 5)
-    .map(([k, r]) => `<a href="#/${k}" data-route="${k}">${icon(r.icon)}<span>${esc(r.short || r.label)}</span></a>`).join('');
+    .map(([k, r]) => `<a href="#/${k}" data-route="${k}">${ico(r)}<span>${esc(r.short || r.label)}</span></a>`).join('');
   refreshIcons();
 }
 
@@ -233,14 +235,19 @@ async function route() {
     // registra en él (antes, al volver a una página, un clic abría el formulario dos veces)
     const anterior = $('#view');
     const view = anterior.cloneNode(false);
+    view.classList.remove('entra');
     anterior.replaceWith(view);
     window.scrollTo(0, 0);
+    // Entrada animada de la vista y barra de carga bajo el encabezado mientras render() espera
+    document.body.classList.add('cargando');
+    view.classList.add('entra');
     await r.mod.render(view, params);
     refreshIcons();
   } catch (err) {
     console.error(err);
     $('#view').innerHTML = `<div class="card">${esc(errMsg(err))}</div>`;
   } finally {
+    document.body.classList.remove('cargando');
     routing = false;
     if (pendingRoute) { pendingRoute = false; route(); }
   }
