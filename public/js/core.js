@@ -5,6 +5,12 @@
 const cfg = window.CALBAS_CONFIG || {};
 export const TZ = 'America/Mexico_City';
 export const APP_VERSION = cfg.APP_VERSION || '7.0.0';
+// Dentro del Portal Pet's Table (theme-init.js lo detecta) la app vive en /metrologia/ y comparte
+// con el portal la sesión, «Mantener sesión» y el tema; sola, en /, conserva sus llaves de siempre.
+export const BASE = window.APP_BASE || '/';
+export const EN_PORTAL = !!window.APP_PORTAL;
+export const K_REMEMBER = EN_PORTAL ? 'portal.remember' : 'calbas.remember';
+export const K_THEME = EN_PORTAL ? 'portal.theme' : 'calbas.theme';
 
 // ---------- Almacenamiento de sesión ("Mantener sesión") ----------
 function safe(fn, fallback) { try { return fn(); } catch { return fallback; } }
@@ -15,7 +21,7 @@ export const prefs = {
 };
 const memory = new Map();
 function activeStore() {
-  const remember = prefs.get('calbas.remember') !== '0';
+  const remember = prefs.get(K_REMEMBER) !== '0';
   return safe(() => (remember ? window.localStorage : window.sessionStorage), null);
 }
 const authStorage = {
@@ -28,7 +34,7 @@ if (!window.supabase || !cfg.SUPABASE_URL || !cfg.SUPABASE_ANON_KEY) {
   throw new Error('Configuración de Supabase no disponible.');
 }
 export const sb = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY, {
-  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, storage: authStorage, storageKey: 'calbas-auth' },
+  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, storage: authStorage, storageKey: EN_PORTAL ? 'portal-auth' : 'calbas-auth' },
 });
 // Limpia los tokens de la versión 6.x (ya no se usan)
 ['calbas_access_token', 'calbas_refresh_token', 'calbas_remember_session'].forEach((k) => {
@@ -270,7 +276,7 @@ export function bindCounters(root) {
 // ---------- Estados vacíos ----------
 // v8.2 · Ilustraciones propias a color (public/emoji/<slug>.svg, generadas desde
 // fuentes/ilustraciones.src). Archivos cacheables: nunca se incrustan en el HTML.
-export const emoji = (slug, cls = '') => `<img class="emoji ${cls}" src="/emoji/${slug}.svg" alt="" aria-hidden="true" loading="lazy" decoding="async">`;
+export const emoji = (slug, cls = '') => `<img class="emoji ${cls}" src="emoji/${slug}.svg" alt="" aria-hidden="true" loading="lazy" decoding="async">`;
 // Ilustración del tipo de equipo (mismo color que su tipo desde v8.0)
 export function ilusTipo(x = {}) {
   const clave = String(x.tipo_clave_calbas ?? x.clave_calbas ?? '').toUpperCase();
@@ -1121,13 +1127,19 @@ function b64uToUint8(s) {
 export function avisar(body) {
   try { sb.functions.invoke('recordatorios_calbas', { body }).catch(() => {}); } catch { /* sin conexión */ }
 }
+// Registro del service worker de esta app (alcance / sola, /metrologia/ en el portal). getRegistration
+// devolvería el del portal si el de la app aún no existe, por eso se compara el alcance.
+export async function registroPropio() {
+  const reg = await navigator.serviceWorker.getRegistration(BASE);
+  return reg && reg.scope === location.origin + BASE ? reg : null;
+}
 export const push = {
   soportado: () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window && window.isSecureContext,
   esIOS: () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1),
   instalada: () => window.matchMedia('(display-mode: standalone), (display-mode: fullscreen), (display-mode: window-controls-overlay)').matches || window.navigator.standalone === true,
   async suscripcion() {
     if (!push.soportado()) return null;
-    const reg = await navigator.serviceWorker.getRegistration('/');
+    const reg = await registroPropio();
     return reg ? reg.pushManager.getSubscription() : null;
   },
   // 'no-soportado' | 'instalar' (iOS sin instalar) | 'bloqueado' | 'activo' | 'inactivo'
@@ -1148,7 +1160,7 @@ export const push = {
     if (!push.soportado()) throw new Error('Este navegador no admite notificaciones.');
     const perm = await Notification.requestPermission();
     if (perm !== 'granted') throw new Error('No se concedió el permiso de notificaciones.');
-    const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+    const reg = await navigator.serviceWorker.register('sw.js', { scope: './' });
     await navigator.serviceWorker.ready;
     let { data: pub } = await sb.rpc('calbas_vapid_publica');
     if (!pub) pub = (await sb.functions.invoke('recordatorios_calbas', { body: { accion: 'init' } })).data?.publica;

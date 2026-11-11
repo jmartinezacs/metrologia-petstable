@@ -4,7 +4,7 @@
 // =====================================================================
 import {
   sb, state, esc, icon, refreshIcons, toast, checkForm, must, avatarHTML, fotoDe, fmtDateTime, prefs, APP_VERSION,
-  prepararFoto, subirFotoPropia, ganchos, errMsg, push, openModal, confirmDialog, fmtDate, todayISO, pill, emoji,
+  prepararFoto, subirFotoPropia, ganchos, errMsg, push, openModal, confirmDialog, fmtDate, todayISO, pill, emoji, K_THEME,
 } from '../core.js';
 
 // Créditos de la plataforma
@@ -29,7 +29,7 @@ function pintar() {
   if (!root) return;
   const p = state.profile, u = state.session?.user;
   const admin = state.isAdmin;
-  const theme = prefs.get('calbas.theme') || 'system';
+  const theme = prefs.get(K_THEME) || 'system';
   root.innerHTML = `
     <section class="page-intro"><div><span class="eyebrow">Cuenta</span><h1>Mi perfil</h1><p>Tus datos de acceso y preferencias.</p></div></section>
     <div class="pf">

@@ -4,6 +4,7 @@
 import {
   sb, state, prefs, esc, icon, refreshIcons, toast, errMsg, openModal, checkForm, must,
   destroyCharts, APP_VERSION, TZ, navigate, avatarHTML, fotoDe, restyleCharts, ganchos, push, emoji,
+  BASE, EN_PORTAL, K_REMEMBER, K_THEME,
 } from './core.js';
 import equipos from './modules/equipos.js';
 import patrones from './modules/patrones.js';
@@ -39,7 +40,7 @@ document.getElementById('year').textContent = new Date().getFullYear();
 $('#app-version').textContent = `Versión ${APP_VERSION}`;
 refreshIcons();
 bindGlobalEvents();
-if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('/sw.js').catch(() => {});
+if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js', { scope: './' }).catch(() => {});
 
 sb.auth.onAuthStateChange((event, session) => {
   // Diferir para no ejecutar consultas dentro del callback de Auth
@@ -67,6 +68,8 @@ async function loadProfileAndStart() {
       sb.from('usuario_departamentos_calbas').select('departamento_id_calbas').eq('usuario_id_calbas', uid).then(must),
     ]);
     if (!p || !p.activo_calbas) {
+      // Dentro del portal la sesión es la del portal: no se cierra, se vuelve al tablero con aviso
+      if (EN_PORTAL) { location.replace('/#/inicio?sin=metrologia'); return; }
       await sb.auth.signOut({ scope: 'local' });
       showLogin('Tu cuenta no tiene acceso a Metrología o está inactiva. Solicítalo a un administrador.');
       return;
@@ -98,7 +101,7 @@ function showLogin(message) {
   if (message) { msg.textContent = message; msg.className = 'login-msg error'; } else { msg.className = 'login-msg hidden'; }
   const btn = $('#login-submit'); btn.disabled = false;
   btn.innerHTML = `${icon('log-in')} Entrar`;
-  $('#login-remember').checked = prefs.get('calbas.remember') !== '0';
+  $('#login-remember').checked = prefs.get(K_REMEMBER) !== '0';
   refreshIcons();
 }
 
@@ -107,7 +110,7 @@ let nuevaVersion = false;
 async function revisarVersion() {
   if (nuevaVersion || !navigator.onLine || document.hidden) return;
   try {
-    const r = await fetch(`/version.json?t=${Date.now()}`, { cache: 'no-store' });
+    const r = await fetch(`version.json?t=${Date.now()}`, { cache: 'no-store' });
     if (!r.ok) return;
     const { version } = await r.json();
     if (version && version !== APP_VERSION) {
@@ -324,10 +327,10 @@ function startClock() {
 }
 
 // ---------------- Tema ----------------
-function currentTheme() { return prefs.get('calbas.theme') || 'system'; }
+function currentTheme() { return prefs.get(K_THEME) || 'system'; }
 export function setTheme(t) {
-  if (t === 'light' || t === 'dark') { document.documentElement.setAttribute('data-theme', t); prefs.set('calbas.theme', t); }
-  else { document.documentElement.removeAttribute('data-theme'); prefs.del('calbas.theme'); }
+  if (t === 'light' || t === 'dark') { document.documentElement.setAttribute('data-theme', t); prefs.set(K_THEME, t); }
+  else { document.documentElement.removeAttribute('data-theme'); prefs.del(K_THEME); }
   updateThemeButton();
   setTimeout(restyleCharts, 0);
 }
@@ -361,7 +364,7 @@ async function login(e) {
   const btn = $('#login-submit');
   if (btn.disabled) return;
   btn.disabled = true; btn.innerHTML = '<span class="spinner sm"></span> Verificando…';
-  prefs.set('calbas.remember', $('#login-remember').checked ? '1' : '0');
+  prefs.set(K_REMEMBER, $('#login-remember').checked ? '1' : '0');
   const { error } = await sb.auth.signInWithPassword({
     email: form.email.value.trim().toLowerCase(),
     password: form.password.value,
@@ -383,6 +386,8 @@ async function logout() {
   await push.desvincular();
   // scope "local": cierra solo esta sesión (otras apps de Pet's Table comparten la cuenta)
   await sb.auth.signOut({ scope: 'local' });
+  // Dentro del portal se cierra la sesión del portal: se vuelve a su inicio de sesión
+  if (EN_PORTAL) { location.replace('/'); return; }
   state.profile = null; state.session = null;
   history.replaceState(null, '', location.pathname);
   showLogin();
@@ -400,7 +405,7 @@ async function forgotPassword() {
       <p class="hint">Esta contraseña es la misma de tu cuenta Pet's Table en las demás aplicaciones.</p>`,
     onSubmit: async ({ form }) => {
       if (!checkForm(form, { email: (v) => (/@petstable\.mx$/i.test(v) ? '' : 'Usa tu correo @petstable.mx.') })) return false;
-      const { error } = await sb.auth.resetPasswordForEmail(form.email.value.trim().toLowerCase(), { redirectTo: `${location.origin}/` });
+      const { error } = await sb.auth.resetPasswordForEmail(form.email.value.trim().toLowerCase(), { redirectTo: `${location.origin}${BASE}` });
       if (error) throw error;
       toast('Si el correo está registrado, recibirás un enlace para restablecer tu contraseña.', 'success', 7000);
     },

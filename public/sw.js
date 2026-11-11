@@ -5,10 +5,12 @@ self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
 self.addEventListener('fetch', () => { /* red directa */ });
 
-const ICONO = '/icons/icon-192.png';
+// Todo es relativo a su alcance: / cuando la app está sola y /metrologia/ dentro del Portal Pet's Table.
+const enAlcance = (ruta) => new URL(String(ruta || '').replace(/^\//, ''), self.registration.scope).href;
+const ICONO = enAlcance('icons/icon-192.png');
 // Ícono pequeño de la barra de estado en Android: silueta blanca de Pet's Table sobre fondo
 // transparente (Android solo usa el canal alfa; con fondo de color se ve un cuadro).
-const BADGE = '/notif/badge-96.png';
+const BADGE = enAlcance('notif/badge-96.png');
 
 async function mostrar(d) {
   await self.registration.showNotification(d.title || 'Metrología', {
@@ -20,7 +22,8 @@ async function mostrar(d) {
     vibrate: [300, 120, 300],
     timestamp: Date.now(),
     actions: [{ action: 'ver', title: 'Ver ahora' }],
-    data: { url: d.url || '/' },
+    // La función recordatorios_calbas manda rutas como '/#/verificar': se abren dentro del alcance de esta app
+    data: { url: enAlcance(d.url || '') },
   });
 }
 
@@ -32,11 +35,11 @@ self.addEventListener('push', (e) => {
 
 self.addEventListener('notificationclick', (e) => {
   e.notification.close();
-  const url = new URL((e.notification.data && e.notification.data.url) || '/', self.location.origin).href;
+  const url = (e.notification.data && e.notification.data.url) || self.registration.scope;
   e.waitUntil((async () => {
     const list = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     for (const c of list) {
-      if (new URL(c.url).origin === self.location.origin) {
+      if (c.url.startsWith(self.registration.scope)) {
         if ('navigate' in c) await c.navigate(url).catch(() => {});
         return c.focus();
       }

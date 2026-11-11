@@ -7,5 +7,5 @@
 window.CALBAS_CONFIG = {
   SUPABASE_URL: "https://domumnsezocubigfqwry.supabase.co",
   SUPABASE_ANON_KEY: "sb_publishable_CDb37asQiekme1SuDnIANw_csZ5ZNRh",
-  APP_VERSION: "8.2.0"
+  APP_VERSION: "8.3.0"
 };

@@ -19,6 +19,16 @@ Guía para Claude Code al trabajar en este repositorio.
 - Bundler: el orden de módulos está fijo en `$order` de `build-single.ps1`. Agrega ahí los módulos nuevos. Solo admite `import {a} from './x.js'`, `import X from` y `export function/const/class`; no admite `export {}` ni `import()`. Para llamar a un módulo posterior, publica la función en `ganchos` (core.js).
 - `legacy/index-v6.5.html` es la versión anterior, como respaldo; no se publica.
 
+## Portal Pet's Table (la misma publicación en dos direcciones)
+
+La app se usa sola en https://metrologia-petstable.vercel.app y también dentro del portal en https://portal-petstable.vercel.app/metrologia/. El portal (repositorio `portal-petstable`, carpeta `Sitio web - Portal Pet's Table`) no tiene copia: reenvía `/metrologia/` a esta publicación, así que todo cambio publicado aquí aparece en las dos. No hace falta tocar el portal al publicar. Para que la versión del portal no se rompa:
+
+- **Rutas siempre relativas** a la ubicación de la app: `emoji/x.svg`, `icons/…`, `notif/…`, `apple-touch-icon.png`, `sw.js`, `version.json`, `manifest.webmanifest`. Nunca `/emoji/…`, `/sw.js`, `/version.json` ni `fetch('/…')`: en el portal apuntarían a la raíz del portal. Excepciones: lo que el build incrusta (`/css/`, `/js/`, `/img/`) y el manifiesto `/manifest.webmanifest` que `theme-init.js` pone a propósito dentro del portal.
+- **Llaves y modo portal:** usa `BASE`, `EN_PORTAL`, `K_REMEMBER` y `K_THEME` de `core.js` (los detecta `theme-init.js`: `APP_BASE`, `APP_PORTAL` y la clase `.en-portal`). Nunca escribas `'calbas.theme'`, `'calbas.remember'` ni `'calbas-auth'` fuera de esas definiciones: dentro del portal la sesión, «Mantener sesión» y el tema son los del portal (`portal-auth`, `portal.remember`, `portal.theme`), así se entra una sola vez.
+- **Service worker:** se registra con `register('sw.js', { scope: './' })`; para encontrarlo usa `registroPropio()` de `core.js` (compara el alcance; `getRegistration` podría devolver el del portal). En `sw.js` todo se resuelve contra `self.registration.scope` (`enAlcance`). La función `recordatorios_calbas` manda rutas como `'/#/verificar'` y el service worker las abre dentro de su alcance.
+- **Comportamiento dentro del portal:** botón «Volver al portal» (`.portal-btn`, oculto fuera del portal); sin acceso vuelve a `/#/inicio?sin=metrologia` sin cerrar sesión; Salir cierra la sesión del portal y lleva a `/`; restablecer contraseña regresa a `location.origin + BASE`.
+- **Comprobar al publicar** un cambio que toque rutas, sesión, tema, service worker, manifiesto o encabezado: que funcione en las dos direcciones. Sin credenciales: compila con `-Prueba` en `<temporal>\metrologia` y sirve `<temporal>` (así la app queda en `/metrologia/`) además de la prueba normal en `/`.
+
 ## Base de datos (Supabase `domumnsezocubigfqwry`, compartida)
 
 - Otros sistemas comparten el proyecto (`_med`, `_prubind`, `brom_`, auditorías, EPP). **Solo toca objetos con sufijo `_calbas`**, el esquema `calbas_private` y las funciones `*_calbas`.

@@ -2016,3 +2016,8 @@ body.cargando .top::after { content: ""; position: absolute; left: 0; bottom: -1
 @media (max-width: 720px) { .table-wrap.responsive td .prox-ver { justify-content: flex-end; } }
 :root[data-theme="dark"] .kx-go { color: color-mix(in srgb, var(--ac) 62%, #fff); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .kx-go { color: color-mix(in srgb, var(--ac) 62%, #fff); } }
+
+/* ---------- Portal Pet's Table (theme-init.js pone .en-portal) ---------- */
+.portal-btn { text-decoration: none; }
+html:not(.en-portal) .portal-btn { display: none !important; }
+.side-portal { margin-bottom: 8px; background: rgba(27, 199, 199, .1); color: #7FE3E3; }
