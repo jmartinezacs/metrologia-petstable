@@ -5,6 +5,7 @@ import {
   sb, state, prefs, esc, icon, refreshIcons, toast, errMsg, openModal, checkForm, must,
   destroyCharts, APP_VERSION, TZ, navigate, avatarHTML, fotoDe, restyleCharts, ganchos, push, emoji,
   BASE, EN_PORTAL, K_REMEMBER, K_THEME,
+  registrarServiceWorker,
 } from './core.js';
 import equipos from './modules/equipos.js';
 import patrones from './modules/patrones.js';
@@ -40,7 +41,7 @@ document.getElementById('year').textContent = new Date().getFullYear();
 $('#app-version').textContent = `Versión ${APP_VERSION}`;
 refreshIcons();
 bindGlobalEvents();
-if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js', { scope: './' }).catch(() => {});
+registrarServiceWorker(); // sola: el de la app; en el portal: el del portal
 
 sb.auth.onAuthStateChange((event, session) => {
   // Diferir para no ejecutar consultas dentro del callback de Auth
