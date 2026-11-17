@@ -99,7 +99,7 @@ const TEMAS = [
 ];
 
 // ---------------- Instalación ----------------
-const C = { navy: '#0B1E2D', navy2: '#1D4260', orange: '#F58020', orangeSoft: '#FFE7D1', turq: '#0FA3A6', bg: '#F4F7FA', line: '#D5DEE6', muted: '#8A99A8', txt: '#1F2D3A', white: '#FFFFFF' };
+const C = { navy: '#0B1E2D', navy2: '#1D4260', orange: '#7E22CE', orangeSoft: '#E9D5FF', turq: '#0FA3A6', bg: '#F4F7FA', line: '#D5DEE6', muted: '#8A99A8', txt: '#1F2D3A', white: '#FFFFFF' };
 const URL_APP = 'metrologia-petstable.vercel.app';
 const appIcon = () => document.querySelector('img.app-icon')?.src || '';
 
@@ -313,7 +313,7 @@ async function imagenAPng(src) {
 
 // Las fuentes estándar del PDF solo tienen Latin-1: se sustituyen los símbolos que no existen
 const pdfTxt = (s) => s.replace(/→/g, '>').replace(/⋮/g, '(tres puntos)').replace(/⋯/g, '(...)').replace(/…/g, '...').replace(/[–—]/g, '-');
-const RGB = { navy: [11, 30, 45], navy2: [29, 66, 96], orange: [245, 128, 32], orangeSoft: [255, 240, 226], turq: [15, 163, 166], turqSoft: [225, 246, 246], txt: [38, 50, 62], muted: [110, 125, 140], line: [218, 226, 233], bg: [246, 248, 250] };
+const RGB = { navy: [11, 30, 45], navy2: [29, 66, 96], orange: [126, 34, 206], orangeSoft: [243, 232, 255], turq: [15, 163, 166], turqSoft: [225, 246, 246], txt: [38, 50, 62], muted: [110, 125, 140], line: [218, 226, 233], bg: [246, 248, 250] };
 
 async function generarGuia() {
   const jsPDF = await cargarJsPDF();

@@ -434,7 +434,7 @@ export function paged(q, { from, to, sort }, extraOrder = []) {
 const charts = new Set();
 const chartConfigs = new WeakMap();
 export function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
-export const PALETTE = ['#F58020', '#1BC7C7', '#0B2235', '#1BB56F', '#7A5BE6', '#E0464E', '#FFB020', '#5B8DEF'];
+export const PALETTE = ['#7E22CE', '#1BC7C7', '#0B2235', '#1BB56F', '#F58020', '#E0464E', '#FFB020', '#5B8DEF'];
 // Etiqueta de datos: el valor dentro de cada barra o segmento (se dibuja en el canvas,
 // así que también aparece al guardar la imagen). Si no cabe, va en una píldora.
 const etiquetasDatos = {
