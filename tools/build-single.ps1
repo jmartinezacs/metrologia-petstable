@@ -93,6 +93,12 @@ Copy-Item (Join-Path $Src 'icons\*.png') (Join-Path $Out 'icons') -Force
 # v8.2 · Ilustraciones propias (SVG cacheables) e íconos de notificación (monocromático de Android)
 New-Item -ItemType Directory -Force (Join-Path $Out 'emoji') | Out-Null
 Copy-Item (Join-Path $Src 'emoji\*.svg') (Join-Path $Out 'emoji') -Force
+# Imágenes realistas (iconos3d): solo imágenes; el README se queda en public/iconos3d
+$ico3d = Get-ChildItem (Join-Path $Src 'iconos3d\*') -Include *.webp, *.png -ErrorAction SilentlyContinue
+if ($ico3d) {
+  New-Item -ItemType Directory -Force (Join-Path $Out 'iconos3d') | Out-Null
+  $ico3d | Copy-Item -Destination (Join-Path $Out 'iconos3d') -Force
+}
 New-Item -ItemType Directory -Force (Join-Path $Out 'notif') | Out-Null
 Copy-Item (Join-Path $Src 'notif\*.png') (Join-Path $Out 'notif') -Force
 if ($configJs -notmatch 'APP_VERSION:\s*["'']([^"'']+)["'']') { throw 'No se encontró APP_VERSION en config.js' }
