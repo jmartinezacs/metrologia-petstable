@@ -280,8 +280,15 @@ export function bindCounters(root) {
 // Las ilustraciones se pueden sustituir por imágenes realistas en public/iconos3d/<nombre>.webp
 // (256 × 256, fondo transparente; ver el README de esa carpeta). Solo se usan los nombres listados en
 // ICONOS_3D; los demás conservan su ilustración. Si una imagen no carga, vuelve sola a la ilustración.
-export const ICONOS_3D = new Set([]);
-const ICO3D_VER = '1';
+export const ICONOS_3D = new Set([ // Paquete de imágenes realistas (v1, 45 imágenes)
+  'activo', 'ajustado', 'anulada', 'atrasada', 'bascula_analitica', 'bascula_mesa', 'bascula_plataforma', 
+  'buffer', 'cal_por_vencer', 'cal_vencida', 'cal_vigente', 'calendario', 'camara', 'celular', 'cumple', 
+  'equipo_generico', 'etiqueta_danada', 'festivos', 'gafete', 'huella', 'inactivo', 'libro', 'llave', 
+  'micropipeta', 'monitor', 'n_alerta', 'n_avisos', 'n_ayuda', 'n_bitacora', 'n_calibraciones', 'n_equipos', 
+  'n_panel', 'n_patrones', 'n_perfil', 'n_usuarios', 'n_verificar', 'no_cumple', 'patron_ref', 'personas', 
+  'por_verificar', 'potenciometro', 'reloj', 'sin_uso', 'tableta', 'termometro',
+]);
+const ICO3D_VER = '2';
 export function con3d(n) { return !!n && ICONOS_3D.has(n); }
 document.addEventListener('error', (e) => {
   const img = e.target;
