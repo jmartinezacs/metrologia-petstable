@@ -288,7 +288,7 @@ export const ICONOS_3D = new Set([ // Paquete de imÃ¡genes realistas (v1, 45 imÃ
   'n_panel', 'n_patrones', 'n_perfil', 'n_usuarios', 'n_verificar', 'no_cumple', 'patron_ref', 'personas', 
   'por_verificar', 'potenciometro', 'reloj', 'sin_uso', 'tableta', 'termometro',
 ]);
-const ICO3D_VER = '5';
+const ICO3D_VER = '6';
 export function con3d(n) { return !!n && ICONOS_3D.has(n); }
 document.addEventListener('error', (e) => {
   const img = e.target;
